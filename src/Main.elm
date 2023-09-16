@@ -100,6 +100,14 @@ exec1 vm =
           ( { vm | pc = a, cstk = rest }, Cont )
         _ ->
           ( vm, Cont ) -- TODO: Error 
+    SAV ->
+      ( { vm | pc = vm.pc + 1, sbrstk = vm.curline :: vm.sbrstk }, Cont )
+    RSTR ->
+      case vm.sbrstk of
+        a :: rest ->
+          ( { vm | pc = vm.pc + 1, sbrstk = rest, curline = a }, Cont )
+        _ ->
+          ( vm, Cont ) -- TODO: Error 
     STORE ->
       case vm.aestk of
         a :: b :: rest ->
