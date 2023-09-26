@@ -50,8 +50,8 @@ type Opcode
   | LST
   | INIT
   | GETLINE              -- Input a line to lbuf.
-  | TSTL Address
-  | INSRT
+  | TSTL Address         -- Check if current buf starts by number or else jump to address.
+  | INSRT                -- Insert current line buf in the line store.
   | XINIT
 
 ucode : List Opcode
@@ -196,6 +196,7 @@ type alias VM =
   , vars : Dict Int Int
   , curline : Int
   , sbrstk : List Int
+  , lines : Dict Int String
   }
 
 initialVM : VM
@@ -208,11 +209,26 @@ initialVM =
   , vars = Dict.empty
   , curline = 0
   , sbrstk = []
+  , lines = Dict.empty
   }
 
 type Next
   = Cont
   | Stop
+
+span : (Char -> Bool) -> String -> (String, String)
+span pred s =
+  case String.uncons s of
+    Just (h, t) ->
+      if pred h then
+        let 
+          (take, drop) = span pred t
+        in
+          (String.cons h take, drop)
+      else
+        ("", s)
+    Nothing ->
+      ("", s)
 
 exec1 : VM -> (VM, Next)
 exec1 vm =
@@ -241,6 +257,27 @@ exec1 vm =
           ( { vm | pc = vm.pc + 1, sbrstk = rest, curline = a }, Cont )
         _ ->
           ( vm, Cont ) -- TODO: Error 
+    INSRT ->
+      let
+        (lnums, code) = span Char.isDigit vm.lbuf
+      in
+        case String.toInt lnums of
+          Just lnum ->
+            ( { vm | pc = vm.pc + 1, lbuf = "", lines = Dict.insert lnum code vm.lines }, Cont )
+          Nothing ->
+            ( { vm | pc = vm.pc + 1, lbuf = "" }, Cont ) -- TODO: Error 
+    TSTL addr ->
+      let
+        lbuf = String.trimLeft vm.lbuf
+      in
+        case String.uncons lbuf of
+          Just (n, _) ->
+            if Char.isDigit n then
+              ( { vm | lbuf = lbuf, pc = vm.pc + 1 }, Cont )
+            else
+              ( { vm | lbuf = lbuf, pc = addr }, Cont )
+          Nothing ->
+            ( { vm | lbuf = lbuf, pc = vm.pc + 1 }, Cont ) -- TODO: Error
     STORE ->
       case vm.aestk of
         a :: b :: rest ->
@@ -354,6 +391,7 @@ view : Model -> Html Msg
 view model =
   div []
     [ div [] [ text model.log ] 
+    , div [] [ text (Debug.toString model.vm.lines) ]
     , form [ onSubmit GotReturn ] 
       [ input [ value model.inp, onInput GotInput ] [] ]
     ]

@@ -49,3 +49,10 @@ suite =
             \_ -> case runCode [ Main.FIN ] of
                     (vm, _) -> Expect.equal 2 vm.pc
         ]
+
+suite2 : Test
+suite2 =
+    describe "The aux functions"
+        [ test "span works" <|
+            \_ -> Expect.equal ("123", "abc") (Main.span Char.isDigit "123abc")
+        ]
