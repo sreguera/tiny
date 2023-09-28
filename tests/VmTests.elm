@@ -15,6 +15,13 @@ runCode cod =
     in
         Main.execN { vm | code = Array.fromList cod } (List.length cod)
 
+runCodeInput : List Main.Opcode -> String -> (Main.VM, Main.Next)
+runCodeInput cod str =
+    let
+        vm = Main.initialVM
+    in
+        Main.execN { vm | code = Array.fromList cod, lbuf = str } (List.length cod)
+
 suite : Test
 suite =
     describe "The VM implementation" 
@@ -48,6 +55,15 @@ suite =
         , test "FIN works" <| 
             \_ -> case runCode [ Main.FIN ] of
                     (vm, _) -> Expect.equal 2 vm.pc
+        , test "TSTL continues with number" <| 
+            \_ -> case runCodeInput [ Main.TSTL 10 ] "123abc" of
+                    (vm, _) -> Expect.equal 1 vm.pc
+        , test "TSTL continues with white and number" <| 
+            \_ -> case runCodeInput [ Main.TSTL 10 ] "   123abc" of
+                    (vm, _) -> Expect.equal 1 vm.pc
+        , test "TSTL jumps with no number" <| 
+            \_ -> case runCodeInput [ Main.TSTL 10 ] "abc" of
+                    (vm, _) -> Expect.equal 10 vm.pc
         ]
 
 suite2 : Test
@@ -56,3 +72,4 @@ suite2 =
         [ test "span works" <|
             \_ -> Expect.equal ("123", "abc") (Main.span Char.isDigit "123abc")
         ]
+
