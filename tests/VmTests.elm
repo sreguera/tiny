@@ -64,6 +64,15 @@ suite =
         , test "TSTL jumps with no number" <| 
             \_ -> case runCodeInput [ Main.TSTL 10 ] "abc" of
                     (vm, _) -> Expect.equal 10 vm.pc
+        , test "TST continues with word" <| 
+            \_ -> case runCodeInput [ Main.TST 10 "abc" ] "abcdef" of
+                    (vm, _) -> Expect.equal 1 vm.pc
+        , test "TST continues with two words" <| 
+            \_ -> case runCodeInput [ Main.TST 10 "abc",  Main.TST 10 "def" ] "abcdef" of
+                    (vm, _) -> Expect.equal 2 vm.pc
+        , test "TST jumps with no word" <| 
+            \_ -> case runCodeInput [ Main.TST 10 "abx" ] "abcdef" of
+                    (vm, _) -> Expect.equal 10 vm.pc
         ]
 
 suite2 : Test

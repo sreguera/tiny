@@ -20,7 +20,7 @@ main =
 type alias Address = Int
 
 type Opcode 
-  = TST Address String
+  = TST Address String   -- Check if current buf starts by word or else jump to address.
   | CALL Address         -- Execute the IL subroutine at address. Save next inst in control stack.
   | RTN                  -- Return from IL subroutine to the inst at the top of the control stack.
   | DONE
@@ -278,6 +278,14 @@ exec1 vm =
               ( { vm | lbuf = lbuf, pc = addr }, Cont )
           Nothing ->
             ( { vm | lbuf = lbuf, pc = vm.pc + 1 }, Cont ) -- TODO: Error
+    TST addr str ->
+      let
+        lbuf = String.trimLeft vm.lbuf
+      in
+        if String.startsWith str lbuf then
+          ( { vm | lbuf = String.dropLeft (String.length str) lbuf, pc = vm.pc + 1 }, Cont )
+        else
+          ( { vm | lbuf = lbuf, pc = addr }, Cont )
     STORE ->
       case vm.aestk of
         a :: b :: rest ->
