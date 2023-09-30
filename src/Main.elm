@@ -48,11 +48,11 @@ type Opcode
   | TSTN Address         -- Test for number and put it on stack, or continue at address.
   | IND                  -- Replace top of aestk by the var it indexes.
   | LST
-  | INIT
+  | INIT                 -- Global initialization.
   | GETLINE              -- Input a line to lbuf.
   | TSTL Address         -- Check if current buf starts by number or else jump to address.
   | INSRT                -- Insert current line buf in the line store.
-  | XINIT
+  | XINIT                -- Initialization for execution.
 
 ucode : List Opcode
 ucode =
@@ -234,7 +234,20 @@ exec1 : VM -> (VM, Next)
 exec1 vm =
   case Maybe.withDefault ERR (Array.get vm.pc vm.code) of
     INIT ->
-      ( { vm | pc = vm.pc + 1 }, Cont )
+      ( { vm | pc = vm.pc + 1
+             , lbuf = ""
+             , aestk = []
+             , cstk = []
+             , vars = Dict.empty
+             , curline = 0
+             , sbrstk = []
+             , lines = Dict.empty 
+        }, Cont )
+    XINIT ->
+      ( { vm | pc = vm.pc + 1
+             , aestk = []
+             , cstk = []
+        }, Cont )
     GETLINE ->
       ( { vm | pc = vm.pc + 1 }, Stop )
     FIN ->
@@ -421,7 +434,8 @@ view : Model -> Html Msg
 view model =
   div []
     [ div [] [ text model.log ] 
-    , div [] [ text (Debug.toString model.vm.lines) ]
     , form [ onSubmit GotReturn ] 
       [ input [ value model.inp, onInput GotInput ] [] ]
+    , div [] [ text "Lines:", text (Debug.toString model.vm.lines) ]
+    , div [] [ text "Vars:", text (Debug.toString model.vm.vars) ]
     ]
