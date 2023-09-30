@@ -8,6 +8,8 @@ import Html.Events exposing (onInput, onSubmit)
 import Html.Attributes exposing (value)
 import Array exposing (Array)
 import Dict exposing (Dict)
+import Html exposing (br)
+import Html exposing (output)
 
 -- MAIN
 
@@ -23,13 +25,13 @@ type Opcode
   = TST Address String   -- Check if current buf starts by word or else jump to address.
   | CALL Address         -- Execute the IL subroutine at address. Save next inst in control stack.
   | RTN                  -- Return from IL subroutine to the inst at the top of the control stack.
-  | DONE
+  | DONE                 --
   | JMP Address          -- Continue execution at the address.
   | PRS
   | PRN
   | SPC
   | NLINE
-  | NXT
+  | NXT                  --
   | XFER
   | SAV                  -- Push current line number onto sbrstk.
   | RSTR                 -- Replace current line number with top of sbrstk.
@@ -47,7 +49,7 @@ type Opcode
   | TSTV Address         -- Test for variable and put its index on stack, or continue at address.
   | TSTN Address         -- Test for number and put it on stack, or continue at address.
   | IND                  -- Replace top of aestk by the var it indexes.
-  | LST
+  | LST                  -- List the contents of the program area.
   | INIT                 -- Global initialization.
   | GETLINE              -- Input a line to lbuf.
   | TSTL Address         -- Check if current buf starts by number or else jump to address.
@@ -197,6 +199,7 @@ type alias VM =
   , curline : Int
   , sbrstk : List Int
   , lines : Dict Int String
+  , output : List String
   }
 
 initialVM : VM
@@ -210,6 +213,7 @@ initialVM =
   , curline = 0
   , sbrstk = []
   , lines = Dict.empty
+  , output = []
   }
 
 type Next
@@ -248,6 +252,16 @@ exec1 vm =
              , aestk = []
              , cstk = []
         }, Cont )
+    NXT ->
+      if vm.curline == 0 then
+        ( { vm | pc = 2 }, Cont )
+      else
+        ( { vm | pc = vm.pc + 1 }, Cont )  -- TODO: goto next line
+    DONE ->
+      if String.isEmpty (String.trim vm.lbuf) then
+        ( { vm | pc = vm.pc + 1 }, Cont )
+      else
+        ( { vm | pc = vm.pc + 1 }, Cont ) -- TODO: Error if not empty
     GETLINE ->
       ( { vm | pc = vm.pc + 1 }, Stop )
     FIN ->
@@ -321,6 +335,11 @@ exec1 vm =
             ( { vm | pc = vm.pc + 1, lbuf = rest, aestk = lnum :: vm.aestk }, Cont )
           Nothing ->
             ( { vm | pc = addr, lbuf = lbuf }, Cont ) -- TODO: Error 
+    LST ->
+      let
+        lines = List.map (\(k, v) -> String.fromInt k ++ " " ++ v) (Dict.toList vm.lines)
+      in
+        ( { vm | pc = vm.pc + 1, output = (List.reverse lines) ++ vm.output }, Cont ) 
     STORE ->
       case vm.aestk of
         a :: b :: rest ->
@@ -397,14 +416,14 @@ resumeWithInput vm s =
 
 type alias Model = 
   { vm : VM
-  , log : String
+  , log : List String
   , inp : String
   }
 
 init : Model
 init =
   { vm = resume initialVM
-  , log = ""
+  , log = []
   , inp = ""
   }
 
@@ -421,8 +440,11 @@ update msg model =
     GotInput str ->
       { model | inp = str } 
     GotReturn ->
-      { vm = resumeWithInput model.vm model.inp
-      , log = model.log ++ "\n" ++ model.inp
+      let
+        vm1 = resumeWithInput model.vm model.inp
+      in
+      { vm = { vm1 | output = [] }
+      , log = vm1.output ++ model.inp :: model.log
       , inp = ""
       }
     _ ->
@@ -433,7 +455,7 @@ update msg model =
 view : Model -> Html Msg
 view model =
   div []
-    [ div [] [ text model.log ] 
+    [ div [] (List.intersperse (br [] []) (List.map text (List.reverse model.log))) -- [ text model.log ] 
     , form [ onSubmit GotReturn ] 
       [ input [ value model.inp, onInput GotInput ] [] ]
     , div [] [ text "Lines:", text (Debug.toString model.vm.lines) ]
