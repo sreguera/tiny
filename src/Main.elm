@@ -44,7 +44,7 @@ type Opcode
   | MUL                  -- Replace top two elements of aestk by their product.
   | DIV                  -- Replace top two elements of aestk by their quotient.
   | STORE                -- Place the value at top of aestk at the var below it.
-  | TSTV Address
+  | TSTV Address         -- Test for variable and put its index on stack, or continue at address.
   | TSTN Address
   | IND                  -- Replace top of aestk by the var it indexes.
   | LST
@@ -286,6 +286,18 @@ exec1 vm =
           ( { vm | lbuf = String.dropLeft (String.length str) lbuf, pc = vm.pc + 1 }, Cont )
         else
           ( { vm | lbuf = lbuf, pc = addr }, Cont )
+    TSTV addr ->
+      let
+        lbuf = String.trimLeft vm.lbuf
+      in
+        case String.uncons lbuf of
+          Just (v, _) ->
+            if Char.isUpper v then
+              ( { vm | lbuf = String.dropLeft 1 lbuf, aestk = (Char.toCode v - Char.toCode 'A') :: vm.aestk, pc = vm.pc + 1 }, Cont )
+            else
+              ( { vm | lbuf = lbuf, pc = addr }, Cont )
+          Nothing ->
+            ( { vm | lbuf = lbuf, pc = vm.pc + 1 }, Cont ) -- TODO: Error
     STORE ->
       case vm.aestk of
         a :: b :: rest ->

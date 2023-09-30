@@ -73,6 +73,9 @@ suite =
         , test "TST jumps with no word" <| 
             \_ -> case runCodeInput [ Main.TST 10 "abx" ] "abcdef" of
                     (vm, _) -> Expect.equal 10 vm.pc
+        , test "TSTV puts var in stack" <| 
+            \_ -> case runCodeInput [ Main.TSTV 10 ] "D" of
+                    (vm, _) -> Expect.equal [3] vm.aestk
         ]
 
 suite2 : Test
