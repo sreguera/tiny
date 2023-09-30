@@ -76,6 +76,12 @@ suite =
         , test "TSTV puts var in stack" <| 
             \_ -> case runCodeInput [ Main.TSTV 10 ] "D" of
                     (vm, _) -> Expect.equal [3] vm.aestk
+        , test "TSTN puts numbers in stack" <| 
+            \_ -> case runCodeInput [ Main.TSTN 10, Main.TSTN 10 ] "31 4" of
+                    (vm, _) -> Expect.equal [4, 31] vm.aestk
+        , test "TSTN jumps if no number" <| 
+            \_ -> case runCodeInput [ Main.TSTN 10 ] "abc" of
+                    (vm, _) -> Expect.equal 10 vm.pc
         ]
 
 suite2 : Test

@@ -45,7 +45,7 @@ type Opcode
   | DIV                  -- Replace top two elements of aestk by their quotient.
   | STORE                -- Place the value at top of aestk at the var below it.
   | TSTV Address         -- Test for variable and put its index on stack, or continue at address.
-  | TSTN Address
+  | TSTN Address         -- Test for number and put it on stack, or continue at address.
   | IND                  -- Replace top of aestk by the var it indexes.
   | LST
   | INIT
@@ -298,6 +298,16 @@ exec1 vm =
               ( { vm | lbuf = lbuf, pc = addr }, Cont )
           Nothing ->
             ( { vm | lbuf = lbuf, pc = vm.pc + 1 }, Cont ) -- TODO: Error
+    TSTN addr ->
+      let
+        lbuf = String.trimLeft vm.lbuf
+        (lnums, rest) = span Char.isDigit lbuf
+      in
+        case String.toInt lnums of
+          Just lnum ->
+            ( { vm | pc = vm.pc + 1, lbuf = rest, aestk = lnum :: vm.aestk }, Cont )
+          Nothing ->
+            ( { vm | pc = addr, lbuf = lbuf }, Cont ) -- TODO: Error 
     STORE ->
       case vm.aestk of
         a :: b :: rest ->
