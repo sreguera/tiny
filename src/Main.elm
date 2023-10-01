@@ -27,7 +27,7 @@ type Opcode
   | RTN                  -- Return from IL subroutine to the inst at the top of the control stack.
   | DONE                 --
   | JMP Address          -- Continue execution at the address.
-  | PRS
+  | PRS                  -- Print characters up to the quote and move the cursor past it.
   | PRN                  -- Print number at top of the stack.
   | SPC                  -- Insert spaces to move print head to next zone.
   | NLINE                -- Output CRLF to printer.
@@ -335,6 +335,12 @@ exec1 vm =
             ( { vm | pc = vm.pc + 1, lbuf = rest, aestk = lnum :: vm.aestk }, Cont )
           Nothing ->
             ( { vm | pc = addr, lbuf = lbuf }, Cont ) -- TODO: Error 
+    PRS ->
+      let
+        (out, rest) = span (\c -> c /= '"') vm.lbuf
+        rest1 = String.dropLeft 1 rest
+      in
+        ( { vm | pc = vm.pc + 1, lbuf = rest1, output = String.append vm.output out }, Cont )
     PRN ->
       case vm.aestk of
         a :: rest ->
