@@ -28,9 +28,9 @@ type Opcode
   | DONE                 --
   | JMP Address          -- Continue execution at the address.
   | PRS
-  | PRN
-  | SPC
-  | NLINE
+  | PRN                  -- Print number at top of the stack.
+  | SPC                  -- Insert spaces to move print head to next zone.
+  | NLINE                -- Output CRLF to printer.
   | NXT                  --
   | XFER
   | SAV                  -- Push current line number onto sbrstk.
@@ -199,7 +199,7 @@ type alias VM =
   , curline : Int
   , sbrstk : List Int
   , lines : Dict Int String
-  , output : List String
+  , output : String
   }
 
 initialVM : VM
@@ -213,7 +213,7 @@ initialVM =
   , curline = 0
   , sbrstk = []
   , lines = Dict.empty
-  , output = []
+  , output = ""
   }
 
 type Next
@@ -335,11 +335,21 @@ exec1 vm =
             ( { vm | pc = vm.pc + 1, lbuf = rest, aestk = lnum :: vm.aestk }, Cont )
           Nothing ->
             ( { vm | pc = addr, lbuf = lbuf }, Cont ) -- TODO: Error 
+    PRN ->
+      case vm.aestk of
+        a :: rest ->
+          ( { vm | pc = vm.pc + 1, aestk = rest, output = String.append vm.output (String.fromInt a) }, Cont )
+        _ ->
+          ( vm, Cont ) -- TODO: Error 
+    SPC ->
+      ( { vm | pc = vm.pc + 1, output = String.append vm.output " " }, Cont )
+    NLINE ->
+      ( { vm | pc = vm.pc + 1, output = String.append vm.output "\n" }, Cont )
     LST ->
       let
-        lines = List.map (\(k, v) -> String.fromInt k ++ " " ++ v) (Dict.toList vm.lines)
+        lines = String.concat (List.map (\(k, v) -> String.fromInt k ++ " " ++ v ++ "\n") (Dict.toList vm.lines))
       in
-        ( { vm | pc = vm.pc + 1, output = (List.reverse lines) ++ vm.output }, Cont ) 
+        ( { vm | pc = vm.pc + 1, output = String.append vm.output lines }, Cont ) 
     STORE ->
       case vm.aestk of
         a :: b :: rest ->
@@ -442,9 +452,10 @@ update msg model =
     GotReturn ->
       let
         vm1 = resumeWithInput model.vm model.inp
+        output = if String.isEmpty vm1.output then [] else (List.reverse (String.lines vm1.output))
       in
-      { vm = { vm1 | output = [] }
-      , log = vm1.output ++ model.inp :: model.log
+      { vm = { vm1 | output = "" }
+      , log = output ++ model.inp :: model.log
       , inp = ""
       }
     _ ->
