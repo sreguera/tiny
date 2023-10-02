@@ -31,8 +31,8 @@ type Opcode
   | PRN                  -- Print number at top of the stack.
   | SPC                  -- Insert spaces to move print head to next zone.
   | NLINE                -- Output CRLF to printer.
-  | NXT                  --
-  | XFER
+  | NXT                  -- Go to next line unless in direct execution.
+  | XFER                 -- Go to line at top of astack or error if it doesn't exist.
   | SAV                  -- Push current line number onto sbrstk.
   | RSTR                 -- Replace current line number with top of sbrstk.
   | CMPR
@@ -256,7 +256,24 @@ exec1 vm =
       if vm.curline == 0 then
         ( { vm | pc = 2 }, Cont )
       else
-        ( { vm | pc = vm.pc + 1 }, Cont )  -- TODO: goto next line
+        let
+          next = List.minimum <| List.filter (\x -> x > vm.curline) <| Dict.keys vm.lines
+        in
+        case next of
+          Just l ->
+            ( { vm | pc = 7, curline = l, lbuf = Maybe.withDefault "" (Dict.get l vm.lines) }, Cont )
+          _ ->
+            ( { vm | pc = 2, curline = 0, lbuf = "" }, Cont )
+    XFER ->
+      case vm.aestk of
+        a :: rest ->
+          case Dict.get a vm.lines of
+            Just code ->
+              ( { vm | pc = 7, curline = a, lbuf = code, aestk = rest }, Cont )
+            _ ->
+              ( vm, Cont ) -- TODO: Error 
+        _ ->
+          ( vm, Cont ) -- TODO: Error 
     DONE ->
       if String.isEmpty (String.trim vm.lbuf) then
         ( { vm | pc = vm.pc + 1 }, Cont )
