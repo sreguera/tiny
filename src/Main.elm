@@ -32,6 +32,7 @@ type Opcode
   | SPC                  -- Insert spaces to move print head to next zone.
   | NLINE                -- Output CRLF to printer.
   | NXT                  -- Go to next line unless in direct execution.
+  | RUNXT                -- Start or continue program execution.
   | XFER                 -- Go to line at top of astack or error if it doesn't exist.
   | SAV                  -- Push current line number onto sbrstk.
   | RSTR                 -- Replace current line number with top of sbrstk.
@@ -123,7 +124,7 @@ ucode =
   , NXT            -- 060          NXT
   , TST 64 "RUN"   -- 061  S15:    TST     S16,'RUN'     ;RUN COMMAND
   , DONE           -- 062          DONE
-  , NXT            -- 063          NXT
+  , RUNXT          -- 063          NXT
   , TST 67 "CLEAR" -- 064  S16:    TST     S17,'CLEAR'   ;CLEAR COMMAND
   , DONE           -- 065          DONE
   , JMP 0          -- 066          JMP     START
@@ -264,6 +265,15 @@ exec1 vm =
             ( { vm | pc = 7, curline = l, lbuf = Maybe.withDefault "" (Dict.get l vm.lines) }, Cont )
           _ ->
             ( { vm | pc = 2, curline = 0, lbuf = "" }, Cont )
+    RUNXT ->
+      let
+        next = List.minimum <| List.filter (\x -> x > vm.curline) <| Dict.keys vm.lines
+      in
+      case next of
+        Just l ->
+          ( { vm | pc = 7, curline = l, lbuf = Maybe.withDefault "" (Dict.get l vm.lines) }, Cont )
+        _ ->
+          ( { vm | pc = 2, curline = 0, lbuf = "" }, Cont )
     XFER ->
       case vm.aestk of
         a :: rest ->
