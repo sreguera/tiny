@@ -38,7 +38,7 @@ type Opcode
   | RSTR                 -- Replace current line number with top of sbrstk.
   | CMPR
   | LIT Int              -- Push the number onto the aestk.
-  | INNUM
+  | INNUM                -- Read a number from the terminal and put it in aestk.  
   | FIN                  -- Return to the line collect routine.
   | ERR
   | ADD                  -- Replace top two elements of aestk by their sum.
@@ -201,7 +201,10 @@ type alias VM =
   , sbrstk : List Int
   , lines : Dict Int String
   , output : String
+  , resume : Resumer
   }
+
+type Resumer = Resumer (VM -> VM)
 
 initialVM : VM
 initialVM =
@@ -215,6 +218,7 @@ initialVM =
   , sbrstk = []
   , lines = Dict.empty
   , output = ""
+  , resume = Resumer identity
   }
 
 type Next
@@ -290,7 +294,18 @@ exec1 vm =
       else
         ( { vm | pc = vm.pc + 1 }, Cont ) -- TODO: Error if not empty
     GETLINE ->
-      ( { vm | pc = vm.pc + 1 }, Stop )
+      ( { vm | pc = vm.pc + 1, resume = Resumer identity }, Stop )
+    INNUM ->
+      let
+        parseNum : VM -> VM
+        parseNum vm0 =
+          case String.toInt vm0.lbuf of
+            Just n ->
+              { vm0 | lbuf = "", aestk = n :: vm0.aestk }
+            Nothing ->
+              vm0 -- TODO: Error
+      in
+      ( { vm | pc = vm.pc + 1, resume = Resumer parseNum }, Stop )
     FIN ->
       ( { vm | pc = 2 }, Cont )
     JMP addr ->
@@ -455,7 +470,10 @@ resume vm =
 
 resumeWithInput : VM -> String -> VM
 resumeWithInput vm s =
-  resume { vm | lbuf = s }
+  resume <| 
+    case vm.resume of 
+      Resumer f ->
+        f { vm | lbuf = s }
 
 type alias Model = 
   { vm : VM
