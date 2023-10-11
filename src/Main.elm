@@ -206,10 +206,10 @@ type alias VM =
 
 type Resumer = Resumer (VM -> VM)
 
-initialVM : VM
-initialVM =
+makeVM : Array Opcode -> VM
+makeVM opcodes =
   { pc = 0
-  , code = Array.fromList ucode
+  , code = opcodes
   , lbuf = ""
   , aestk = []
   , cstk = []
@@ -220,6 +220,9 @@ initialVM =
   , output = ""
   , resume = Resumer identity
   }
+
+initialVM : VM
+initialVM = makeVM (Array.fromList ucode)
 
 type Next
   = Cont
