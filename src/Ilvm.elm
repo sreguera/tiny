@@ -93,17 +93,20 @@ span pred s =
 exec1 : VM -> (VM, Next)
 exec1 vm =
     let
+        read_addr = 2
+        stmt_addr = 7
+
         error : String -> (VM, Next)
         error msg =
             let
                 line = String.concat ["\n!", String.fromInt vm.curline, ": ", msg, "\n"]
             in
-            ( { vm | pc = 2, output = String.append vm.output line }, Cont )
+            ( { vm | pc = read_addr, output = String.append vm.output line }, Cont )
         
         nxt : VM -> (VM, Next)
         nxt vm0 =
             if vm0.curline == 0 then
-                ( { vm0 | pc = 2 }, Cont )
+                ( { vm0 | pc = read_addr }, Cont )
             else
                 runxt vm0
         
@@ -114,9 +117,9 @@ exec1 vm =
             in
             case next of
                 Just l ->
-                    ( { vm0 | pc = 7, curline = l, lbuf = Maybe.withDefault "" (Dict.get l vm0.lines) }, Cont )
+                    ( { vm0 | pc = stmt_addr, curline = l, lbuf = Maybe.withDefault "" (Dict.get l vm0.lines) }, Cont )
                 _ ->
-                    ( { vm0 | pc = 2, curline = 0, lbuf = "" }, Cont )
+                    ( { vm0 | pc = read_addr, curline = 0, lbuf = "" }, Cont )
     in
     case Maybe.withDefault ERR (Array.get vm.pc vm.code) of
         INIT ->
@@ -144,7 +147,7 @@ exec1 vm =
                 a :: rest ->
                     case Dict.get a vm.lines of
                         Just code ->
-                            ( { vm | pc = 7, curline = a, lbuf = code, aestk = rest }, Cont )
+                            ( { vm | pc = stmt_addr, curline = a, lbuf = code, aestk = rest }, Cont )
                         _ ->
                             ( vm, Cont ) -- TODO: Error 
                 _ ->
@@ -175,7 +178,7 @@ exec1 vm =
             ( { vm | pc = vm.pc + 1, resume = Resumer parseNum }, Stop )
 
         FIN ->
-            ( { vm | pc = 2 }, Cont )
+            ( { vm | pc = read_addr }, Cont )
 
         JMP addr ->
             ( { vm | pc = addr }, Cont )
