@@ -9,7 +9,7 @@ type Opcode
     = TST Address String   -- Check if current buf starts by word or else jump to address.
     | CALL Address         -- Execute the IL subroutine at address. Save next inst in control stack.
     | RTN                  -- Return from IL subroutine to the inst at the top of the control stack.
-    | DONE                 --
+    | DONE                 -- Report a syntax error if the rest of the line is not empty.
     | JMP Address          -- Continue execution at the address.
     | PRS                  -- Print characters up to the quote and move the cursor past it.
     | PRN                  -- Print number at top of the stack.
@@ -24,7 +24,7 @@ type Opcode
     | LIT Int              -- Push the number onto the aestk.
     | INNUM                -- Read a number from the terminal and put it in aestk.  
     | FIN                  -- Return to the line collect routine.
-    | ERR
+    | ERR                  -- Report syntax error and return to line collect routine.
     | ADD                  -- Replace top two elements of aestk by their sum.
     | SUB                  -- Replace top two elements of aestk by their difference.
     | NEG                  -- Replace top of aestk with its negative.
@@ -92,6 +92,14 @@ span pred s =
 
 exec1 : VM -> (VM, Next)
 exec1 vm =
+    let
+        error : String -> (VM, Next)
+        error msg =
+            let
+                line = String.concat ["\n!", String.fromInt vm.curline, ": ", msg, "\n"]
+            in
+            ( { vm | pc = 2, output = String.append vm.output line }, Cont )
+    in
     case Maybe.withDefault ERR (Array.get vm.pc vm.code) of
         INIT ->
             ( { vm | pc = vm.pc + 1
@@ -145,7 +153,10 @@ exec1 vm =
             if String.isEmpty (String.trim vm.lbuf) then
                 ( { vm | pc = vm.pc + 1 }, Cont )
             else
-                ( { vm | pc = vm.pc + 1 }, Cont ) -- TODO: Error if not empty
+                error "Syntax error"
+        
+        ERR ->
+            error "Syntax error"
 
         GETLINE ->
             ( { vm | pc = vm.pc + 1, resume = Resumer identity }, Stop )
