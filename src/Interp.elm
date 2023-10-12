@@ -1,13 +1,14 @@
 module Interp exposing (..)
 
-import Ilvm exposing (VM, makeVM, Opcode(..))
+import Ilvm exposing (VM, makeVM)
+import Ilasm exposing (Inst(..), assemble)
 import Array
 
 initialVM : VM
-initialVM = makeVM (Array.fromList ucode)
+initialVM = makeVM (Array.fromList (assemble interp))
 
-ucode : List Opcode
-ucode =
+interp : List Inst
+interp =
     [                --      ;THE IL CONTROL SECTION
       INIT           -- 000  START:  INIT                  ;INITIALIZE
     , NLINE          -- 001          NLINE                 ;WRITE CRLF
