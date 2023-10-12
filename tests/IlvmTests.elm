@@ -43,6 +43,12 @@ suite =
         , test "DIV works" <| 
             \_ -> case runCode [ Ilvm.LIT 29, Ilvm.LIT 7, Ilvm.DIV ] of
                     (vm, _) -> Expect.equal [4] vm.aestk
+        , test "CMPR > works" <| 
+            \_ -> case runCode [ Ilvm.LIT 1, Ilvm.LIT 4, Ilvm.LIT 7, Ilvm.CMPR ] of
+                    (vm, _) -> Expect.equal 2 vm.pc
+        , test "CMPR < works" <| 
+            \_ -> case runCode [ Ilvm.LIT 1, Ilvm.LIT 1, Ilvm.LIT 7, Ilvm.CMPR ] of
+                    (vm, _) -> Expect.equal 4 vm.pc
         , test "STORE works" <| 
             \_ -> case runCode [ Ilvm.LIT 5, Ilvm.LIT 7, Ilvm.STORE ] of
                     (vm, _) -> Expect.equal (Just 7) (Dict.get 5 vm.vars)

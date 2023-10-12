@@ -20,7 +20,7 @@ type Opcode
     | XFER                 -- Go to line at top of astack or error if it doesn't exist.
     | SAV                  -- Push current line number onto sbrstk.
     | RSTR                 -- Replace current line number with top of sbrstk.
-    | CMPR
+    | CMPR                 -- Compare top and top-2 as indicated by top-1, and NXT if false.
     | LIT Int              -- Push the number onto the aestk.
     | INNUM                -- Read a number from the terminal and put it in aestk.  
     | FIN                  -- Return to the line collect routine.
@@ -99,6 +99,24 @@ exec1 vm =
                 line = String.concat ["\n!", String.fromInt vm.curline, ": ", msg, "\n"]
             in
             ( { vm | pc = 2, output = String.append vm.output line }, Cont )
+        
+        nxt : VM -> (VM, Next)
+        nxt vm0 =
+            if vm0.curline == 0 then
+                ( { vm0 | pc = 2 }, Cont )
+            else
+                runxt vm0
+        
+        runxt : VM -> (VM, Next)
+        runxt vm0 =
+            let
+                next = List.minimum <| List.filter (\x -> x > vm0.curline) <| Dict.keys vm0.lines
+            in
+            case next of
+                Just l ->
+                    ( { vm0 | pc = 7, curline = l, lbuf = Maybe.withDefault "" (Dict.get l vm0.lines) }, Cont )
+                _ ->
+                    ( { vm0 | pc = 2, curline = 0, lbuf = "" }, Cont )
     in
     case Maybe.withDefault ERR (Array.get vm.pc vm.code) of
         INIT ->
@@ -116,27 +134,10 @@ exec1 vm =
             ( { vm | pc = vm.pc + 1, aestk = [], cstk = [] }, Cont )
 
         NXT ->
-            if vm.curline == 0 then
-                ( { vm | pc = 2 }, Cont )
-            else
-                let
-                    next = List.minimum <| List.filter (\x -> x > vm.curline) <| Dict.keys vm.lines
-                in
-                case next of
-                    Just l ->
-                        ( { vm | pc = 7, curline = l, lbuf = Maybe.withDefault "" (Dict.get l vm.lines) }, Cont )
-                    _ ->
-                        ( { vm | pc = 2, curline = 0, lbuf = "" }, Cont )
+            nxt vm
 
         RUNXT ->
-            let
-                next = List.minimum <| List.filter (\x -> x > vm.curline) <| Dict.keys vm.lines
-            in
-            case next of
-                Just l ->
-                    ( { vm | pc = 7, curline = l, lbuf = Maybe.withDefault "" (Dict.get l vm.lines) }, Cont )
-                _ ->
-                    ( { vm | pc = 2, curline = 0, lbuf = "" }, Cont )
+            runxt vm
 
         XFER ->
             case vm.aestk of
@@ -337,8 +338,33 @@ exec1 vm =
                 _ ->
                     ( vm, Cont ) -- TODO: Error
 
-        _ ->
-            ( { vm | pc = vm.pc + 1 }, Cont )
+        CMPR ->
+            case vm.aestk of
+                r :: c :: l :: rest ->
+                    let
+                        res = case c of
+                            0 ->
+                                l == r
+                            1 ->
+                                l < r
+                            2 ->
+                                l <= r
+                            3 ->
+                                l /= r
+                            4 ->
+                                l > r
+                            5 ->
+                                l >= r
+                            _ ->
+                                False -- TODO: Error
+                    in
+                    if res then
+                        ( { vm | pc = vm.pc + 1, aestk = rest }, Cont )
+                    else
+                        nxt { vm | aestk = rest }
+                _ ->
+                    ( vm, Cont ) -- TODO: Error
+
 
 execN : VM -> Int -> (VM, Next)
 execN vm n =
