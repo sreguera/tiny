@@ -99,10 +99,17 @@ exec1 vm =
         error : String -> (VM, Next)
         error msg =
             let
-                line = String.concat ["\n!", String.fromInt vm.curline, ": ", msg, "\n"]
+                line = String.concat ["\n! ", String.fromInt vm.curline, ": ", msg, "\n"]
             in
             ( { vm | pc = read_addr, output = String.append vm.output line }, Cont )
-        
+
+        sysError : String -> (VM, Next)
+        sysError msg =
+            let
+                line = String.concat ["\n!!! ", String.fromInt vm.curline, ": ", msg, "\n"]
+            in
+            ( { vm | output = String.append vm.output line }, Stop )
+
         nxt : VM -> (VM, Next)
         nxt vm0 =
             if vm0.curline == 0 then
@@ -149,9 +156,9 @@ exec1 vm =
                         Just code ->
                             ( { vm | pc = stmt_addr, curline = a, lbuf = code, aestk = rest }, Cont )
                         _ ->
-                            ( vm, Cont ) -- TODO: Error 
+                            error "Missing line"
                 _ ->
-                    ( vm, Cont ) -- TODO: Error 
+                    sysError "Stack underflow"
 
         DONE ->
             if String.isEmpty (String.trim vm.lbuf) then
@@ -173,7 +180,7 @@ exec1 vm =
                         Just n ->
                             { vm0 | lbuf = "", aestk = n :: vm0.aestk }
                         Nothing ->
-                            vm0 -- TODO: Error
+                            vm0 -- TODO: Error, syntax error
             in
             ( { vm | pc = vm.pc + 1, resume = Resumer parseNum }, Stop )
 
@@ -191,7 +198,7 @@ exec1 vm =
                 a :: rest ->
                     ( { vm | pc = a, cstk = rest }, Cont )
                 _ ->
-                    ( vm, Cont ) -- TODO: Error 
+                    sysError "Control stack underflow"
 
         SAV ->
             ( { vm | pc = vm.pc + 1, sbrstk = vm.curline :: vm.sbrstk }, Cont )
@@ -201,17 +208,17 @@ exec1 vm =
                 a :: rest ->
                     ( { vm | pc = vm.pc + 1, sbrstk = rest, curline = a }, Cont )
                 _ ->
-                    ( vm, Cont ) -- TODO: Error 
+                    error "RETURN without GOSUB"
 
         INSRT ->
             let
                 (lnums, code) = span Char.isDigit vm.lbuf
             in
-                case String.toInt lnums of
-                    Just lnum ->
-                        ( { vm | pc = vm.pc + 1, lbuf = "", lines = Dict.insert lnum code vm.lines }, Cont )
-                    Nothing ->
-                        ( { vm | pc = vm.pc + 1, lbuf = "" }, Cont ) -- TODO: Error 
+            case String.toInt lnums of
+                Just lnum ->
+                    ( { vm | pc = vm.pc + 1, lbuf = "", lines = Dict.insert lnum code vm.lines }, Cont ) -- TODO: Check >0 and <limit
+                Nothing ->
+                    ( { vm | pc = vm.pc + 1, lbuf = "" }, Cont ) -- TODO: System Error, no line number 
 
         TSTL addr ->
             let
@@ -224,7 +231,7 @@ exec1 vm =
                     else
                         ( { vm | lbuf = lbuf, pc = addr }, Cont )
                 Nothing ->
-                    ( { vm | lbuf = lbuf, pc = vm.pc + 1 }, Cont ) -- TODO: Error
+                    ( { vm | lbuf = lbuf, pc = vm.pc + 1 }, Cont ) -- TODO: Error? Empty line
 
         TST addr str ->
             let
@@ -246,7 +253,7 @@ exec1 vm =
                     else
                         ( { vm | lbuf = lbuf, pc = addr }, Cont )
                 Nothing ->
-                    ( { vm | lbuf = lbuf, pc = vm.pc + 1 }, Cont ) -- TODO: Error
+                    ( { vm | lbuf = lbuf, pc = addr }, Cont )
 
         TSTN addr ->
             let
@@ -257,12 +264,12 @@ exec1 vm =
                 Just lnum ->
                     ( { vm | pc = vm.pc + 1, lbuf = rest, aestk = lnum :: vm.aestk }, Cont )
                 Nothing ->
-                    ( { vm | pc = addr, lbuf = lbuf }, Cont ) -- TODO: Error 
+                    ( { vm | pc = addr, lbuf = lbuf }, Cont )
 
         PRS ->
             let
                 (out, rest) = span (\c -> c /= '"') vm.lbuf
-                rest1 = String.dropLeft 1 rest
+                rest1 = String.dropLeft 1 rest -- TODO: what if string ends but not in "?
             in
             ( { vm | pc = vm.pc + 1, lbuf = rest1, output = String.append vm.output out }, Cont )
 
@@ -271,7 +278,7 @@ exec1 vm =
                 a :: rest ->
                     ( { vm | pc = vm.pc + 1, aestk = rest, output = String.append vm.output (String.fromInt a) }, Cont )
                 _ ->
-                    ( vm, Cont ) -- TODO: Error 
+                    sysError "Stack underflow"
 
         SPC ->
             ( { vm | pc = vm.pc + 1, output = String.append vm.output " " }, Cont )
@@ -288,20 +295,20 @@ exec1 vm =
         STORE ->
             case vm.aestk of
                 a :: b :: rest ->
-                    ( { vm | pc = vm.pc + 1, aestk = rest, vars = Dict.insert b a vm.vars }, Cont )
+                    ( { vm | pc = vm.pc + 1, aestk = rest, vars = Dict.insert b a vm.vars }, Cont ) -- TODO: System Error, Invalid var
                 _ ->
-                    ( vm, Cont ) -- TODO: Error 
+                    sysError "Stack underflow"
 
         IND ->
             case vm.aestk of
                 a :: rest ->
                     case Dict.get a vm.vars of
                         Just v ->
-                            ( { vm | pc = vm.pc + 1, aestk = v :: rest }, Cont )
+                            ( { vm | pc = vm.pc + 1, aestk = v :: rest }, Cont ) -- TODO: System Error, Invalid var
                         _ ->
-                            ( vm, Cont ) -- TODO: Error 
+                            ( vm, Cont ) -- TODO: Error, uninit var
                 _ ->
-                    ( vm, Cont ) -- TODO: Error 
+                    sysError "Stack underflow"
 
         LIT val ->
             ( { vm | pc = vm.pc + 1, aestk = val :: vm.aestk }, Cont )
@@ -311,35 +318,38 @@ exec1 vm =
                 a :: b :: rest ->
                     ( { vm | pc = vm.pc + 1, aestk = a + b :: rest }, Cont )
                 _ ->
-                    ( vm, Cont ) -- TODO: Error 
+                    sysError "Stack underflow"
 
         SUB ->
             case vm.aestk of
                 a :: b :: rest ->
                     ( { vm | pc = vm.pc + 1, aestk = b - a :: rest }, Cont )
                 _ ->
-                    ( vm, Cont ) -- TODO: Error 
+                    sysError "Stack underflow"
 
         NEG ->
             case vm.aestk of
                 a :: rest ->
                     ( { vm | pc = vm.pc + 1, aestk =  -a :: rest }, Cont )
                 _ ->
-                    ( vm, Cont ) -- TODO: Error 
+                    sysError "Stack underflow"
 
         MUL ->
             case vm.aestk of
                 a :: b :: rest ->
                     ( { vm | pc = vm.pc + 1, aestk = a * b :: rest }, Cont )
                 _ ->
-                    ( vm, Cont ) -- TODO: Error 
+                    sysError "Stack underflow"
 
         DIV ->
             case vm.aestk of
                 a :: b :: rest ->
-                    ( { vm | pc = vm.pc + 1, aestk = b // a :: rest }, Cont ) -- TODO: div by 0
+                    if a /= 0 then
+                        ( { vm | pc = vm.pc + 1, aestk = b // a :: rest }, Cont )
+                    else
+                        error "Division by zero"
                 _ ->
-                    ( vm, Cont ) -- TODO: Error
+                    sysError "Stack underflow"
 
         CMPR ->
             case vm.aestk of
@@ -359,14 +369,14 @@ exec1 vm =
                             5 ->
                                 l >= r
                             _ ->
-                                False -- TODO: Error
+                                False -- TODO: System Error, invalid relop
                     in
                     if res then
                         ( { vm | pc = vm.pc + 1, aestk = rest }, Cont )
                     else
                         nxt { vm | aestk = rest }
                 _ ->
-                    ( vm, Cont ) -- TODO: Error
+                    sysError "Stack underflow"
 
 
 execN : VM -> Int -> (VM, Next)
