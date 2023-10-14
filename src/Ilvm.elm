@@ -96,6 +96,13 @@ exec1 vm =
         read_addr = 2
         stmt_addr = 7
 
+        error0 : String -> VM
+        error0 msg =
+            let
+                line = String.concat ["\n! ", String.fromInt vm.curline, ": ", msg, "\n"]
+            in
+            { vm | pc = read_addr, output = String.append vm.output line }
+
         error : String -> (VM, Next)
         error msg =
             let
@@ -180,7 +187,7 @@ exec1 vm =
                         Just n ->
                             { vm0 | lbuf = "", aestk = n :: vm0.aestk }
                         Nothing ->
-                            vm0 -- TODO: Error, syntax error
+                            error0 "Syntax error"
             in
             ( { vm | pc = vm.pc + 1, resume = Resumer parseNum }, Stop )
 
@@ -215,10 +222,14 @@ exec1 vm =
                 (lnums, code) = span Char.isDigit vm.lbuf
             in
             case String.toInt lnums of
-                Just lnum ->
-                    ( { vm | pc = vm.pc + 1, lbuf = "", lines = Dict.insert lnum code vm.lines }, Cont ) -- TODO: Check >0 and <limit
+                Just lnum ->  -- TODO: Check >0 and <limit
+                    case code of
+                        "" ->
+                            ( { vm | pc = vm.pc + 1, lbuf = "", lines = Dict.remove lnum vm.lines }, Cont ) 
+                        _ ->
+                            ( { vm | pc = vm.pc + 1, lbuf = "", lines = Dict.insert lnum code vm.lines }, Cont )
                 Nothing ->
-                    ( { vm | pc = vm.pc + 1, lbuf = "" }, Cont ) -- TODO: System Error, no line number 
+                    sysError "No line number"
 
         TSTL addr ->
             let
@@ -231,7 +242,7 @@ exec1 vm =
                     else
                         ( { vm | lbuf = lbuf, pc = addr }, Cont )
                 Nothing ->
-                    ( { vm | lbuf = lbuf, pc = vm.pc + 1 }, Cont ) -- TODO: Error? Empty line
+                    ( { vm | lbuf = lbuf, pc = addr }, Cont )
 
         TST addr str ->
             let
@@ -269,9 +280,11 @@ exec1 vm =
         PRS ->
             let
                 (out, rest) = span (\c -> c /= '"') vm.lbuf
-                rest1 = String.dropLeft 1 rest -- TODO: what if string ends but not in "?
             in
-            ( { vm | pc = vm.pc + 1, lbuf = rest1, output = String.append vm.output out }, Cont )
+            if String.startsWith "\"" rest then
+                ( { vm | pc = vm.pc + 1, lbuf = String.dropLeft 1 rest, output = String.append vm.output out }, Cont )
+            else
+                error "Syntax error"
 
         PRN ->
             case vm.aestk of
