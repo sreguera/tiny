@@ -315,11 +315,10 @@ exec1 vm =
         IND ->
             case vm.aestk of
                 a :: rest ->
-                    case Dict.get a vm.vars of
-                        Just v ->
-                            ( { vm | pc = vm.pc + 1, aestk = v :: rest }, Cont ) -- TODO: System Error, Invalid var
-                        _ ->
-                            ( vm, Cont ) -- TODO: Error, uninit var
+                    let
+                        val = Maybe.withDefault 0 (Dict.get a vm.vars)
+                    in
+                    ( { vm | pc = vm.pc + 1, aestk = val :: rest }, Cont ) -- TODO: System Error, Invalid var
                 _ ->
                     sysError "Stack underflow"
 

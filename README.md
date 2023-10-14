@@ -3,6 +3,8 @@
 A web browser implementation of the [Tiny BASIC](https://en.wikipedia.org/wiki/Tiny_BASIC)
 programming language.
 
+* Uninit variables are 0.
+
 ## TODO
 
 * Error handling for user and system errors.
