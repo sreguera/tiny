@@ -6,8 +6,9 @@ import Browser
 import Html exposing (Html, div, text, input, form, br, output)
 import Html.Events exposing (onInput, onSubmit)
 import Html.Attributes exposing (value)
-import Ilvm exposing (Opcode(..), VM, resume, resumeWithInput)
+import Ilvm exposing (VM, resume, resumeWithInput)
 import Interp
+import Html.Attributes exposing (style)
 
 -- MAIN
 
@@ -58,10 +59,10 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ div [] (List.intersperse (br [] []) (List.map text (List.reverse model.log))) -- [ text model.log ] 
+    div [style "font-family" "monospace"]
+        [ div [ style "width" "64ch" ] (List.intersperse (br [] []) (List.map text (List.reverse model.log)))
         , form [ onSubmit GotReturn ] 
-          [ input [ value model.inp, onInput GotInput ] [] ]
+          [ input [ value model.inp, onInput GotInput, style "font-family" "monospace", style "width" "64ch" ] [] ]
         , div [] [ text "Lines:", text (Debug.toString model.vm.lines) ]
         , div [] [ text "Vars:", text (Debug.toString model.vm.vars) ]
         ]
