@@ -3,12 +3,11 @@ module Main exposing (..)
 -- Tiny Basic interpreter.
 
 import Browser
-import Html exposing (Html, div, text, input, form, br, output)
-import Html.Events exposing (onInput, onSubmit)
-import Html.Attributes exposing (value)
+import Element exposing (Element)
+import Element.Input
+import Html exposing (Html)
 import Ilvm exposing (VM, resume, resumeWithInput)
 import Interp
-import Html.Attributes exposing (style)
 
 -- MAIN
 
@@ -59,10 +58,33 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div [style "font-family" "monospace"]
-        [ div [ style "width" "64ch" ] (List.intersperse (br [] []) (List.map text (List.reverse model.log)))
-        , form [ onSubmit GotReturn ] 
-          [ input [ value model.inp, onInput GotInput, style "font-family" "monospace", style "width" "64ch" ] [] ]
-        , div [] [ text "Lines:", text (Debug.toString model.vm.lines) ]
-        , div [] [ text "Vars:", text (Debug.toString model.vm.vars) ]
+    Element.layout []
+        (viewModel model)
+
+viewModel : Model -> Element Msg
+viewModel model =
+    Element.column []
+        [ Element.text "Tiny Basic"
+        , viewTerminal model
         ]
+
+viewTerminal : Model -> Element Msg
+viewTerminal model =
+    Element.column []
+        [ viewLog model.log
+        , Element.Input.text [] 
+            { onChange = GotInput
+            , text = model.inp
+            , placeholder = Nothing
+            , label = Element.Input.labelHidden ""
+            }
+        , Element.Input.button []
+            { onPress = Just GotReturn
+            , label = Element.text "CR"
+            }
+        ]
+
+viewLog : List String -> Element Msg
+viewLog log =
+    Element.column []
+        (List.map Element.text (List.reverse log))

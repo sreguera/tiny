@@ -5,7 +5,7 @@ import Ilasm exposing (Inst(..), assemble)
 import Array
 
 initialVM : VM
-initialVM = makeVM (Array.fromList (Debug.log "UCODE" (assemble interp)))
+initialVM = makeVM (Array.fromList (assemble interp))
 
 interp : List Inst
 interp =
