@@ -8,8 +8,10 @@ import Element.Input
 import Element.Font as Font
 import Element.Background as Background
 import Html exposing (Html)
+import Html.Events
 import Ilvm exposing (VM, resume, resumeWithInput)
 import Interp
+import Json.Decode as Decode
 import Dict
 import Array
 
@@ -79,19 +81,32 @@ viewModel model =
             ]
         ]
 
+-- From elm-ui examples
+onEnter : msg -> Element.Attribute msg
+onEnter msg =
+    Element.htmlAttribute
+        (Html.Events.on "keyup"
+            (Decode.field "key" Decode.string
+                |> Decode.andThen
+                    (\key ->
+                        if key == "Enter" then
+                            Decode.succeed msg
+
+                        else
+                            Decode.fail "Not the enter key"
+                    )
+            )
+        )
+
 viewTerminal : Model -> Element Msg
 viewTerminal model =
     Element.column [ Font.family [Font.monospace] ]
         [ viewLog model.log
-        , Element.Input.text [] 
+        , Element.Input.text [ onEnter GotReturn ] 
             { onChange = GotInput
             , text = model.inp
             , placeholder = Nothing
             , label = Element.Input.labelHidden ""
-            }
-        , Element.Input.button []
-            { onPress = Just GotReturn
-            , label = Element.text "CR"
             }
         ]
 
