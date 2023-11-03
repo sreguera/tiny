@@ -1,10 +1,32 @@
-module Ilasm exposing (..)
+module Ilasm exposing
+    ( Inst(..)
+    , assemble
+    )
+
+{-| An assembler for the IL virtual machine.
+
+# Instructions
+@docs Inst
+
+# Assembler
+@docs assemble
+
+-}
 
 import Ilvm
 import Dict exposing (Dict)
 
+
 type alias Label = String
 
+
+{-| An assembly instruction corresponds one to one with an IL VM opcode.
+The only exception is the LABEL pseudo-instruction. 
+
+The difference between instructions and opcodes is that instructions take
+address arguments as symbols, while opcodes use numeric offsets.
+
+-}
 type Inst 
     = TST Label String
     | CALL Label
@@ -42,11 +64,16 @@ type Inst
     | XINIT
     | LABEL String
 
+
+{-| Assemble a list of instructions into the equivalent list of opcodes.
+-}
 assemble : List Inst -> List Ilvm.Opcode
 assemble insts =
     pass2 insts (pass1 insts)
 
+
 type alias SymTab = Dict String Int
+
 
 pass1 : List Inst -> SymTab
 pass1 program =
@@ -54,8 +81,8 @@ pass1 program =
         pass1Int : List Inst -> Int -> SymTab -> SymTab
         pass1Int insts offset syms =
             case insts of
-                LABEL l :: rest ->
-                    pass1Int rest offset (Dict.insert l offset syms)
+                LABEL name :: rest ->
+                    pass1Int rest offset (Dict.insert name offset syms)
                 _ :: rest ->
                     pass1Int rest (offset + 1) syms
                 [] ->
@@ -63,12 +90,17 @@ pass1 program =
     in
     pass1Int program 0 Dict.empty
 
+
 pass2 : List Inst -> SymTab -> List Ilvm.Opcode
 pass2 insts syms =
-    List.filterMap (assemble1 syms) insts
+    List.filterMap (encode syms) insts
 
-assemble1 : SymTab -> Inst -> Maybe Ilvm.Opcode
-assemble1 syms inst =
+
+{-| Encode one assembly instruction into an VM opcode. Uses the symbol
+table to lookup label values.
+-}
+encode : SymTab -> Inst -> Maybe Ilvm.Opcode
+encode syms inst =
     let
         lookup name = Maybe.withDefault 0 (Dict.get name syms)
     in
