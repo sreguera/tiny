@@ -83,6 +83,9 @@ interp =
     , RSTR              -- RESTORE LINE NUMBER OF CALL
     , NXT               -- SEQUENCE TO NEXT STATEMENT
     , LABEL "S13"
+    , TST "S14A" "REM"
+    , NXT
+    , LABEL "S14A"
     , TST "S14" "END"
     , FIN
     , LABEL "S14"
