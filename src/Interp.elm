@@ -1,11 +1,16 @@
 module Interp exposing (..)
 
-import Ilvm exposing (VM, makeVM)
+import Ilvm exposing (VM, makeVM, makeErrorVM)
 import Ilasm exposing (Inst(..), assemble)
 import Array
 
 initialVM : VM
-initialVM = makeVM (Array.fromList (assemble interp))
+initialVM = 
+    case assemble interp of
+        Ok ops ->
+            makeVM (Array.fromList ops)
+        Err e ->
+            makeErrorVM e
 
 interp : List Inst
 interp =

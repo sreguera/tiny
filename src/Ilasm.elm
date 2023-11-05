@@ -15,6 +15,8 @@ module Ilasm exposing
 
 import Ilvm
 import Dict exposing (Dict)
+import Result exposing (andThen)
+import List
 
 
 type alias Label = String
@@ -67,112 +69,148 @@ type Inst
 
 {-| Assemble a list of instructions into the equivalent list of opcodes.
 -}
-assemble : List Inst -> List Ilvm.Opcode
+assemble : List Inst -> Result String (List Ilvm.Opcode)
 assemble insts =
-    pass2 insts (pass1 insts)
+    pass1 insts 
+        |> andThen (pass2 insts)
 
 
 type alias SymTab = Dict String Int
 
 
-pass1 : List Inst -> SymTab
+pass1 : List Inst -> Result String SymTab
 pass1 program =
     let
-        pass1Int : List Inst -> Int -> SymTab -> SymTab
+        pass1Int : List Inst -> Int -> SymTab -> Result String SymTab
         pass1Int insts offset syms =
             case insts of
                 LABEL name :: rest ->
-                    pass1Int rest offset (Dict.insert name offset syms)
+                    if Dict.member name syms then
+                        Err <| "ILASM: Duplicated label " ++ name
+                    else
+                        pass1Int rest offset (Dict.insert name offset syms)
                 _ :: rest ->
                     pass1Int rest (offset + 1) syms
                 [] ->
-                    syms
+                    Ok syms
     in
     pass1Int program 0 Dict.empty
 
 
-pass2 : List Inst -> SymTab -> List Ilvm.Opcode
+pass2 : List Inst -> SymTab -> Result String (List Ilvm.Opcode)
 pass2 insts syms =
-    List.filterMap (encode syms) insts
+    List.map (encode syms) insts
+        |> combine
+        |> Result.map List.concat
+
+
+-- also in Result.Extra
+combine : List (Result x a) -> Result x (List a)
+combine l =
+    List.foldr (Result.map2 (::)) (Ok []) l
+
+
+-- also in Basics.Extra
+flip : (a -> b -> c) -> b -> a -> c
+flip f a b = f b a
 
 
 {-| Encode one assembly instruction into an VM opcode. Uses the symbol
 table to lookup label values.
 -}
-encode : SymTab -> Inst -> Maybe Ilvm.Opcode
+encode : SymTab -> Inst -> Result String (List Ilvm.Opcode)
 encode syms inst =
     let
-        lookup name = Maybe.withDefault 0 (Dict.get name syms)
+        encodeLabel : Label -> (Int -> Ilvm.Opcode) -> Result String (List Ilvm.Opcode)
+        encodeLabel name op =
+            case Dict.get name syms of
+                Just val ->
+                    Ok [ op val ]
+                Nothing ->
+                    Err <| "ILASM: Undefined label " ++ name
+
+        encodeNumber : Int -> (Int -> Ilvm.Opcode) -> Result String (List Ilvm.Opcode)
+        encodeNumber n op =
+            Ok [ op n ]
+
+        encodeSimple : Ilvm.Opcode -> Result String (List Ilvm.Opcode)
+        encodeSimple op =
+            Ok [ op ]
+
+        encodeNothing : Result String (List Ilvm.Opcode)
+        encodeNothing =
+            Ok []
+
     in
     case inst of
         TST label string ->
-            Just <| Ilvm.TST (lookup label) string
+            encodeLabel label ((flip Ilvm.TST) string)
         CALL label ->
-            Just <| Ilvm.CALL (lookup label)
+            encodeLabel label Ilvm.CALL
         RTN ->
-            Just <| Ilvm.RTN
+            encodeSimple Ilvm.RTN
         DONE ->
-            Just <| Ilvm.DONE
+            encodeSimple Ilvm.DONE
         JMP label ->
-            Just <| Ilvm.JMP (lookup label)
+            encodeLabel label Ilvm.JMP
         PRS ->
-            Just <| Ilvm.PRS
+            encodeSimple Ilvm.PRS
         PRN ->
-            Just <| Ilvm.PRN
+            encodeSimple Ilvm.PRN
         SPC ->
-            Just <| Ilvm.SPC
+            encodeSimple Ilvm.SPC
         NLINE ->
-            Just <| Ilvm.NLINE
+            encodeSimple Ilvm.NLINE
         NXT ->
-            Just <| Ilvm.NXT
+            encodeSimple Ilvm.NXT
         RUNXT ->
-            Just <| Ilvm.RUNXT
+            encodeSimple Ilvm.RUNXT
         XFER ->
-            Just <| Ilvm.XFER
+            encodeSimple Ilvm.XFER
         SAV ->
-            Just <| Ilvm.SAV
+            encodeSimple Ilvm.SAV
         RSTR ->
-            Just <| Ilvm.RSTR
+            encodeSimple Ilvm.RSTR
         CMPR ->
-            Just <| Ilvm.CMPR
+            encodeSimple Ilvm.CMPR
         LIT val ->
-            Just <| Ilvm.LIT val
+            encodeNumber val Ilvm.LIT
         INNUM ->
-            Just <| Ilvm.INNUM
+            encodeSimple Ilvm.INNUM
         FIN ->
-            Just <| Ilvm.FIN
+            encodeSimple Ilvm.FIN
         ERR ->
-            Just <| Ilvm.ERR
+            encodeSimple Ilvm.ERR
         ADD ->
-            Just <| Ilvm.ADD
+            encodeSimple Ilvm.ADD
         SUB ->
-            Just <| Ilvm.SUB
+            encodeSimple Ilvm.SUB
         NEG ->
-            Just <| Ilvm.NEG
+            encodeSimple Ilvm.NEG
         MUL ->
-            Just <| Ilvm.MUL
+            encodeSimple Ilvm.MUL
         DIV ->
-            Just <| Ilvm.DIV
+            encodeSimple Ilvm.DIV
         STORE ->
-            Just <| Ilvm.STORE
+            encodeSimple Ilvm.STORE
         TSTV label ->
-            Just <| Ilvm.TSTV (lookup label)
+            encodeLabel label Ilvm.TSTV
         TSTN label ->
-            Just <| Ilvm.TSTN (lookup label)
+            encodeLabel label Ilvm.TSTN
         IND ->
-            Just <| Ilvm.IND
+            encodeSimple Ilvm.IND
         LST ->
-            Just <| Ilvm.LST
+            encodeSimple Ilvm.LST
         INIT ->
-            Just <| Ilvm.INIT
+            encodeSimple Ilvm.INIT
         GETLINE ->
-            Just <| Ilvm.GETLINE
+            encodeSimple Ilvm.GETLINE
         TSTL label ->
-            Just <| Ilvm.TSTL (lookup label)
+            encodeLabel label Ilvm.TSTL
         INSRT ->
-            Just <| Ilvm.INSRT
+            encodeSimple Ilvm.INSRT
         XINIT ->
-            Just <| Ilvm.XINIT
+            encodeSimple Ilvm.XINIT
         LABEL _ ->
-            Nothing
+            encodeNothing
         

@@ -72,6 +72,13 @@ makeVM opcodes =
     , resume = Resumer identity
     }
 
+makeErrorVM err =
+    let
+        errorCodes = Array.fromList [ GETLINE, JMP 0 ]
+        errorVM = makeVM errorCodes
+    in
+    { errorVM | output = err }
+
 type Next
     = Cont
     | Stop

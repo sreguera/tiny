@@ -12,7 +12,9 @@ programming language.
 ## TODO
 
 * Error handling for user and system errors.
-* Error handling in the VM assembler. Error if dup labels, unknown label.
+* Error handling in the VM assembler:
+    * Goto a label outside of range, e.g. label is the last inst.
+    * Positions 2 (read line) and 7 (stmt) are significative. Check labels.
 * Decide on system limits: Basic line numbers range, number range, stack size.
 * Unit/fuzz/prop complete testing.
 * Better module exports.
