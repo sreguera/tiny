@@ -9,6 +9,10 @@ programming language.
 * Uninit variables are 0.
 * Case sensitive.
 
+## Development
+
+See the [elm documentation](https://guide.elm-lang.org/install/elm).
+
 ## TODO
 
 * Error handling for user and system errors.
