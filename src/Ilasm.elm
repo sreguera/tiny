@@ -68,6 +68,11 @@ type Inst
 
 
 {-| Assemble a list of instructions into the equivalent list of opcodes.
+Returns an error instead:
+
+- If a label is used without being defined.
+- If a label is duplicated.
+
 -}
 assemble : List Inst -> Result String (List Ilvm.Opcode)
 assemble insts =
@@ -115,23 +120,26 @@ flip : (a -> b -> c) -> b -> a -> c
 flip f a b = f b a
 
 
-{-| Encode one assembly instruction into an VM opcode. Uses the symbol
-table to lookup label values.
+{-| Encode one assembly instruction into VM opcodes. Uses the symbol
+table to lookup label values. Returns an error:
+
+- If a label is not found in the symbol table.
+
 -}
 encode : SymTab -> Inst -> Result String (List Ilvm.Opcode)
 encode syms inst =
     let
-        encodeLabel : Label -> (Int -> Ilvm.Opcode) -> Result String (List Ilvm.Opcode)
-        encodeLabel name op =
+        encodeLabel : (Int -> Ilvm.Opcode) -> Label -> Result String (List Ilvm.Opcode)
+        encodeLabel fop name =
             case Dict.get name syms of
                 Just val ->
-                    Ok [ op val ]
+                    Ok [ fop val ]
                 Nothing ->
                     Err <| "ILASM: Undefined label " ++ name
 
-        encodeNumber : Int -> (Int -> Ilvm.Opcode) -> Result String (List Ilvm.Opcode)
-        encodeNumber n op =
-            Ok [ op n ]
+        encodeNumber : (Int -> Ilvm.Opcode) -> Int -> Result String (List Ilvm.Opcode)
+        encodeNumber fop n =
+            Ok [ fop n ]
 
         encodeSimple : Ilvm.Opcode -> Result String (List Ilvm.Opcode)
         encodeSimple op =
@@ -144,15 +152,15 @@ encode syms inst =
     in
     case inst of
         TST label string ->
-            encodeLabel label ((flip Ilvm.TST) string)
+            encodeLabel ((flip Ilvm.TST) string) label
         CALL label ->
-            encodeLabel label Ilvm.CALL
+            encodeLabel Ilvm.CALL label
         RTN ->
             encodeSimple Ilvm.RTN
         DONE ->
             encodeSimple Ilvm.DONE
         JMP label ->
-            encodeLabel label Ilvm.JMP
+            encodeLabel Ilvm.JMP label
         PRS ->
             encodeSimple Ilvm.PRS
         PRN ->
@@ -174,7 +182,7 @@ encode syms inst =
         CMPR ->
             encodeSimple Ilvm.CMPR
         LIT val ->
-            encodeNumber val Ilvm.LIT
+            encodeNumber Ilvm.LIT val
         INNUM ->
             encodeSimple Ilvm.INNUM
         FIN ->
@@ -194,9 +202,9 @@ encode syms inst =
         STORE ->
             encodeSimple Ilvm.STORE
         TSTV label ->
-            encodeLabel label Ilvm.TSTV
+            encodeLabel Ilvm.TSTV label
         TSTN label ->
-            encodeLabel label Ilvm.TSTN
+            encodeLabel Ilvm.TSTN label
         IND ->
             encodeSimple Ilvm.IND
         LST ->
@@ -206,7 +214,7 @@ encode syms inst =
         GETLINE ->
             encodeSimple Ilvm.GETLINE
         TSTL label ->
-            encodeLabel label Ilvm.TSTL
+            encodeLabel Ilvm.TSTL label
         INSRT ->
             encodeSimple Ilvm.INSRT
         XINIT ->
