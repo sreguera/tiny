@@ -19,7 +19,12 @@ import Array
 
 main : Program () Model Msg
 main =
-    Browser.sandbox { init = init, update = update, view = view }
+    Browser.element
+        { init = init
+        , subscriptions = subscriptions
+        , update = update
+        , view = view
+        }
 
 -- MODEL
 
@@ -29,12 +34,20 @@ type alias Model =
     , inp : String
     }
 
-init : Model
-init =
-    { vm = resume Interp.initialVM
-    , log = []
-    , inp = ""
-    }
+init : () -> (Model, Cmd Msg)
+init _ =
+    (   { vm = resume Interp.initialVM
+        , log = []
+        , inp = ""
+        }
+    , Cmd.none
+    )
+
+-- SUBSCRIPTIONS
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.none
 
 -- UPDATE
 
@@ -43,22 +56,24 @@ type Msg
     | GotInput String
     | GotReturn
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
         GotInput str ->
-            { model | inp = str } 
+            ( { model | inp = str }, Cmd.none )
         GotReturn ->
             let
                 vm1 = resumeWithInput model.vm model.inp
                 output = if String.isEmpty vm1.output then [] else (List.reverse (String.lines vm1.output))
+                model1 = 
+                    { vm = { vm1 | output = "" }
+                    , log = output ++ model.inp :: model.log
+                    , inp = ""
+                    }
             in
-            { vm = { vm1 | output = "" }
-            , log = output ++ model.inp :: model.log
-            , inp = ""
-            }
+            (model1, Cmd.none)
         _ ->
-            model
+            (model, Cmd.none)
 
 -- VIEW
 
