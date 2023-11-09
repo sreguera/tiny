@@ -56,12 +56,14 @@ type alias VM =
     , sbrstk : List Int
     , lines : Dict Int String
     , output : String
-    , resume : Resumer
-    , nextAction : Next
+    , next : Next
     }
 
 
-type Resumer = Resumer (VM -> VM)
+type Next
+    = Continue
+    | Stop
+    | Input (VM -> VM)
 
 
 makeVM : Array Opcode -> VM
@@ -76,8 +78,7 @@ makeVM opcodes =
     , sbrstk = []
     , lines = Dict.empty
     , output = ""
-    , resume = Resumer identity
-    , nextAction = Cont
+    , next = Continue
     }
 
 
@@ -88,11 +89,6 @@ makeErrorVM err =
         errorVM = makeVM errorCodes
     in
     { errorVM | output = err }
-
-
-type Next
-    = Cont
-    | Stop
 
 
 span : (Char -> Bool) -> String -> (String, String)
@@ -151,7 +147,7 @@ exec1 vm =
             let
                 line = String.concat ["\n!!! ", String.fromInt vm.curline, ": ", msg, "\n"]
             in
-            { vm | output = String.append vm.output line, nextAction = Stop }
+            { vm | output = String.append vm.output line, next = Stop }
 
         nxt : VM -> VM
         nxt vm0 =
@@ -213,10 +209,12 @@ exec1 vm =
             error "Syntax error"
 
         GETLINE ->
-            { vm | pc = vm.pc + 1, resume = Resumer identity, nextAction = Stop }
+            -- No change in pc, blocked in I/O
+            { vm | next = Input identity }
 
         INNUM ->
-            { vm | pc = vm.pc + 1, resume = Resumer parseNum, nextAction = Stop }
+            -- No change in pc, blocked in I/O
+            { vm | next = Input parseNum }
 
         FIN ->
             { vm | pc = read_addr }
@@ -426,11 +424,11 @@ execN vm n =
         let
             vm1 = exec1 vm
         in
-        case vm1.nextAction of
-            Stop ->
-                vm1
-            Cont ->
+        case vm1.next of
+            Continue ->
                 execN vm1 (n - 1)
+            _ ->
+                vm1
 
 
 resume : VM -> VM
@@ -441,6 +439,11 @@ resume vm =
 resumeWithInput : VM -> String -> VM
 resumeWithInput vm s =
     resume <| 
-        case vm.resume of 
-            Resumer f ->
-                f { vm | lbuf = s, nextAction = Cont }
+        case vm.next of 
+            Input complete ->
+                let
+                    vm1 = complete { vm | lbuf = s }
+                in
+                { vm1 | pc = vm1.pc + 1, next = Continue }
+            _ ->
+                vm

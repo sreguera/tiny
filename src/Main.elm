@@ -64,8 +64,8 @@ update msg model =
         GotInput str ->
             ( { model | inp = str }, Cmd.none )
         GotReturn ->
-            case model.vm.nextAction of
-                Stop ->
+            case model.vm.next of
+                Input _ ->
                     let
                         vm1 = resumeWithInput model.vm model.inp
                         output = if String.isEmpty vm1.output then [] else (List.reverse (String.lines vm1.output))
@@ -76,13 +76,11 @@ update msg model =
                             }
                     in
                     (model1, Cmd.none)
-                Cont ->
+                _ ->
                     (model, Cmd.none)
         Tick _ ->
-            case model.vm.nextAction of
-                Stop ->
-                    (model, Cmd.none)
-                Cont ->
+            case model.vm.next of
+                Continue ->
                     let
                         vm1 = resume model.vm
                         output = if String.isEmpty vm1.output then [] else (List.reverse (String.lines vm1.output))
@@ -93,6 +91,9 @@ update msg model =
                             }
                     in
                     (model1, Cmd.none)
+                _ ->
+                    (model, Cmd.none)
+
 
 -- VIEW
 
