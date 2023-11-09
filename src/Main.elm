@@ -152,16 +152,23 @@ viewLog log =
 
 viewLines : Model -> Element Msg
 viewLines model =
+    let
+        showCurrent lineno elem =
+            if lineno == model.vm.curline then
+                Element.el [ Background.color (rgb 0.7 0.7 0.9) ] elem
+            else
+                elem
+    in
     Element.table [ Font.family [Font.monospace] ]
         { data = Dict.toList model.vm.lines
         , columns =
             [ { header = Element.text "Lineno"
               , width = Element.fill
-              , view = \(lineno, _) -> Element.text (String.fromInt lineno)
+              , view = \(lineno, _) -> showCurrent lineno <| Element.text (String.fromInt lineno)
               }
             , { header = Element.text "Code"
               , width = Element.fill
-              , view = \(_, code) -> Element.text code
+              , view = \(lineno, code) -> showCurrent lineno <| Element.text code
               }
             ]
         }
