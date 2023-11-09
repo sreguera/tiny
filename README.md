@@ -13,6 +13,10 @@ programming language.
 
 See the [elm documentation](https://guide.elm-lang.org/install/elm).
 
+Install elm and then, in this directory:
+* `elm reactor` will serve the app from `http://localhost:8080`, or
+* `elm make src/Main.elm` will generate an `index.html` containing the app.
+
 ## TODO
 
 * Error handling for user and system errors.
