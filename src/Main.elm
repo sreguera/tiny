@@ -9,11 +9,13 @@ import Element.Font as Font
 import Element.Background as Background
 import Html exposing (Html)
 import Html.Events
-import Ilvm exposing (VM, resume, resumeWithInput)
+import Ilvm exposing (VM, resume, resumeWithInput, Next(..))
 import Interp
 import Json.Decode as Decode
 import Dict
 import Array
+import Time
+import Platform.Cmd as Cmd
 
 -- MAIN
 
@@ -47,12 +49,12 @@ init _ =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Sub.none
+    Time.every 20 Tick
 
 -- UPDATE
 
 type Msg
-    = Init
+    = Tick Time.Posix
     | GotInput String
     | GotReturn
 
@@ -72,8 +74,21 @@ update msg model =
                     }
             in
             (model1, Cmd.none)
-        _ ->
-            (model, Cmd.none)
+        Tick _ ->
+            case model.vm.nextAction of
+                Stop ->
+                    (model, Cmd.none)
+                Cont ->
+                    let
+                        vm1 = resume model.vm
+                        output = if String.isEmpty vm1.output then [] else (List.reverse (String.lines vm1.output))
+                        model1 = 
+                            { vm = { vm1 | output = "" }
+                            , log = output ++ model.log
+                            , inp = ""
+                            }
+                    in
+                    (model1, Cmd.none)
 
 -- VIEW
 

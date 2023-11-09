@@ -1,9 +1,12 @@
 module Ilvm exposing (..)
 
+
 import Array exposing (Array)
 import Dict exposing (Dict)
 
+
 type alias Address = Int
+
 
 type Opcode 
     = TST Address String   -- Check if current buf starts by word or else jump to address.
@@ -41,6 +44,7 @@ type Opcode
     | INSRT                -- Insert current line buf in the line store.
     | XINIT                -- Initialization for execution.
 
+
 type alias VM =
     { pc : Address
     , code : Array Opcode
@@ -53,9 +57,12 @@ type alias VM =
     , lines : Dict Int String
     , output : String
     , resume : Resumer
+    , nextAction : Next
     }
 
+
 type Resumer = Resumer (VM -> VM)
+
 
 makeVM : Array Opcode -> VM
 makeVM opcodes =
@@ -70,8 +77,11 @@ makeVM opcodes =
     , lines = Dict.empty
     , output = ""
     , resume = Resumer identity
+    , nextAction = Cont
     }
 
+
+makeErrorVM : String -> VM
 makeErrorVM err =
     let
         errorCodes = Array.fromList [ GETLINE, JMP 0 ]
@@ -79,9 +89,11 @@ makeErrorVM err =
     in
     { errorVM | output = err }
 
+
 type Next
     = Cont
     | Stop
+
 
 span : (Char -> Bool) -> String -> (String, String)
 span pred s =
@@ -97,18 +109,35 @@ span pred s =
         Nothing ->
             ("", s)
 
+
+read_addr : Address
+read_addr = 2
+
+
+stmt_addr : Address
+stmt_addr = 7
+
+
+error0 : String -> VM -> VM
+error0 msg vm =
+    let
+        line = String.concat ["\n! ", String.fromInt vm.curline, ": ", msg, "\n"]
+    in
+    { vm | pc = read_addr, output = String.append vm.output line }
+
+
+parseNum : VM -> VM
+parseNum vm =
+    case String.toInt vm.lbuf of
+        Just n ->
+            { vm | lbuf = "", aestk = n :: vm.aestk }
+        Nothing ->
+            error0 "Syntax error" vm
+
+
 exec1 : VM -> (VM, Next)
 exec1 vm =
     let
-        read_addr = 2
-        stmt_addr = 7
-
-        error0 : String -> VM
-        error0 msg =
-            let
-                line = String.concat ["\n! ", String.fromInt vm.curline, ": ", msg, "\n"]
-            in
-            { vm | pc = read_addr, output = String.append vm.output line }
 
         error : String -> (VM, Next)
         error msg =
@@ -122,7 +151,7 @@ exec1 vm =
             let
                 line = String.concat ["\n!!! ", String.fromInt vm.curline, ": ", msg, "\n"]
             in
-            ( { vm | output = String.append vm.output line }, Stop )
+            ( { vm | output = String.append vm.output line, nextAction = Stop }, Stop )
 
         nxt : VM -> (VM, Next)
         nxt vm0 =
@@ -184,19 +213,10 @@ exec1 vm =
             error "Syntax error"
 
         GETLINE ->
-            ( { vm | pc = vm.pc + 1, resume = Resumer identity }, Stop )
+            ( { vm | pc = vm.pc + 1, resume = Resumer identity, nextAction = Stop }, Stop )
 
         INNUM ->
-            let
-                parseNum : VM -> VM
-                parseNum vm0 =
-                    case String.toInt vm0.lbuf of
-                        Just n ->
-                            { vm0 | lbuf = "", aestk = n :: vm0.aestk }
-                        Nothing ->
-                            error0 "Syntax error"
-            in
-            ( { vm | pc = vm.pc + 1, resume = Resumer parseNum }, Stop )
+            ( { vm | pc = vm.pc + 1, resume = Resumer parseNum, nextAction = Stop }, Stop )
 
         FIN ->
             ( { vm | pc = read_addr }, Cont )
@@ -409,17 +429,24 @@ execN vm n =
             ( vm1, Cont ) ->
                 execN vm1 (n - 1)
 
+
 resume : VM -> VM
 resume vm =
-    case exec1 vm of
-        ( vm1, Stop ) ->
-            vm1
-        ( vm1, Cont ) ->
-            resume vm1
+    let
+        (vm1, _) = execN vm 100
+    in
+    vm1
+-- resume vm =
+--     case exec1 vm of
+--         ( vm1, Stop ) ->
+--             vm1
+--         ( vm1, Cont ) ->
+--             resume vm1
+
 
 resumeWithInput : VM -> String -> VM
 resumeWithInput vm s =
     resume <| 
         case vm.resume of 
             Resumer f ->
-                f { vm | lbuf = s }
+                f { vm | lbuf = s, nextAction = Cont }
