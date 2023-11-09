@@ -394,24 +394,28 @@ exec1 vm =
                     let
                         res = case c of
                             0 ->
-                                l == r
+                                Just (l == r)
                             1 ->
-                                l < r
+                                Just (l < r)
                             2 ->
-                                l <= r
+                                Just (l <= r)
                             3 ->
-                                l /= r
+                                Just (l /= r)
                             4 ->
-                                l > r
+                                Just (l > r)
                             5 ->
-                                l >= r
+                                Just (l >= r)
                             _ ->
-                                False -- TODO: System Error, invalid relop
+                                Nothing
                     in
-                    if res then
-                        { vm | pc = vm.pc + 1, aestk = rest }
-                    else
-                        nxt { vm | aestk = rest }
+                    case res of
+                        Just val ->
+                            if val then
+                                { vm | pc = vm.pc + 1, aestk = rest }
+                            else
+                                nxt { vm | aestk = rest }
+                        Nothing ->
+                            sysError ("Invalid comparison " ++ String.fromInt c)
                 _ ->
                     sysError "Stack underflow"
 
