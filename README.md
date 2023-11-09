@@ -23,5 +23,5 @@ See the [elm documentation](https://guide.elm-lang.org/install/elm).
 * Unit/fuzz/prop complete testing.
 * Better module exports.
 * UI: Terminal, terminal style save/load, VM debugging.
-* Break/Ctrl-C support. Tick.
+* Break/Ctrl-C support.
 * Compile as a github action.

@@ -38,7 +38,7 @@ type alias Model =
 
 init : () -> (Model, Cmd Msg)
 init _ =
-    (   { vm = resume Interp.initialVM
+    (   { vm = Interp.initialVM
         , log = []
         , inp = ""
         }
@@ -64,16 +64,20 @@ update msg model =
         GotInput str ->
             ( { model | inp = str }, Cmd.none )
         GotReturn ->
-            let
-                vm1 = resumeWithInput model.vm model.inp
-                output = if String.isEmpty vm1.output then [] else (List.reverse (String.lines vm1.output))
-                model1 = 
-                    { vm = { vm1 | output = "" }
-                    , log = output ++ model.inp :: model.log
-                    , inp = ""
-                    }
-            in
-            (model1, Cmd.none)
+            case model.vm.nextAction of
+                Stop ->
+                    let
+                        vm1 = resumeWithInput model.vm model.inp
+                        output = if String.isEmpty vm1.output then [] else (List.reverse (String.lines vm1.output))
+                        model1 = 
+                            { vm = { vm1 | output = "" }
+                            , log = output ++ model.inp :: model.log
+                            , inp = ""
+                            }
+                    in
+                    (model1, Cmd.none)
+                Cont ->
+                    (model, Cmd.none)
         Tick _ ->
             case model.vm.nextAction of
                 Stop ->

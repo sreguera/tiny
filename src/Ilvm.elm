@@ -135,45 +135,45 @@ parseNum vm =
             error0 "Syntax error" vm
 
 
-exec1 : VM -> (VM, Next)
+exec1 : VM -> VM
 exec1 vm =
     let
 
-        error : String -> (VM, Next)
+        error : String -> VM
         error msg =
             let
                 line = String.concat ["\n! ", String.fromInt vm.curline, ": ", msg, "\n"]
             in
-            ( { vm | pc = read_addr, output = String.append vm.output line }, Cont )
+            { vm | pc = read_addr, output = String.append vm.output line }
 
-        sysError : String -> (VM, Next)
+        sysError : String -> VM
         sysError msg =
             let
                 line = String.concat ["\n!!! ", String.fromInt vm.curline, ": ", msg, "\n"]
             in
-            ( { vm | output = String.append vm.output line, nextAction = Stop }, Stop )
+            { vm | output = String.append vm.output line, nextAction = Stop }
 
-        nxt : VM -> (VM, Next)
+        nxt : VM -> VM
         nxt vm0 =
             if vm0.curline == 0 then
-                ( { vm0 | pc = read_addr }, Cont )
+                { vm0 | pc = read_addr }
             else
                 runxt vm0
         
-        runxt : VM -> (VM, Next)
+        runxt : VM -> VM
         runxt vm0 =
             let
                 next = List.minimum <| List.filter (\x -> x > vm0.curline) <| Dict.keys vm0.lines
             in
             case next of
                 Just l ->
-                    ( { vm0 | pc = stmt_addr, curline = l, lbuf = Maybe.withDefault "" (Dict.get l vm0.lines) }, Cont )
+                    { vm0 | pc = stmt_addr, curline = l, lbuf = Maybe.withDefault "" (Dict.get l vm0.lines) }
                 _ ->
-                    ( { vm0 | pc = read_addr, curline = 0, lbuf = "" }, Cont )
+                    { vm0 | pc = read_addr, curline = 0, lbuf = "" }
     in
     case Maybe.withDefault ERR (Array.get vm.pc vm.code) of
         INIT ->
-            ( { vm | pc = vm.pc + 1
+            { vm | pc = vm.pc + 1
                 , lbuf = ""
                 , aestk = []
                 , cstk = []
@@ -181,10 +181,10 @@ exec1 vm =
                 , curline = 0
                 , sbrstk = []
                 , lines = Dict.empty 
-            }, Cont )
+            }
 
         XINIT ->
-            ( { vm | pc = vm.pc + 1, aestk = [], cstk = [] }, Cont )
+            { vm | pc = vm.pc + 1, aestk = [], cstk = [] }
 
         NXT ->
             nxt vm
@@ -197,7 +197,7 @@ exec1 vm =
                 a :: rest ->
                     case Dict.get a vm.lines of
                         Just code ->
-                            ( { vm | pc = stmt_addr, curline = a, lbuf = code, aestk = rest }, Cont )
+                            { vm | pc = stmt_addr, curline = a, lbuf = code, aestk = rest }
                         _ ->
                             error "Missing line"
                 _ ->
@@ -205,7 +205,7 @@ exec1 vm =
 
         DONE ->
             if String.isEmpty (String.trim vm.lbuf) then
-                ( { vm | pc = vm.pc + 1 }, Cont )
+                { vm | pc = vm.pc + 1 }
             else
                 error "Syntax error"
         
@@ -213,34 +213,34 @@ exec1 vm =
             error "Syntax error"
 
         GETLINE ->
-            ( { vm | pc = vm.pc + 1, resume = Resumer identity, nextAction = Stop }, Stop )
+            { vm | pc = vm.pc + 1, resume = Resumer identity, nextAction = Stop }
 
         INNUM ->
-            ( { vm | pc = vm.pc + 1, resume = Resumer parseNum, nextAction = Stop }, Stop )
+            { vm | pc = vm.pc + 1, resume = Resumer parseNum, nextAction = Stop }
 
         FIN ->
-            ( { vm | pc = read_addr }, Cont )
+            { vm | pc = read_addr }
 
         JMP addr ->
-            ( { vm | pc = addr }, Cont )
+            { vm | pc = addr }
 
         CALL addr ->
-            ( { vm | pc = addr, cstk = vm.pc + 1 :: vm.cstk }, Cont )
+            { vm | pc = addr, cstk = vm.pc + 1 :: vm.cstk }
 
         RTN ->
             case vm.cstk of
                 a :: rest ->
-                    ( { vm | pc = a, cstk = rest }, Cont )
+                    { vm | pc = a, cstk = rest }
                 _ ->
                     sysError "Control stack underflow"
 
         SAV ->
-            ( { vm | pc = vm.pc + 1, sbrstk = vm.curline :: vm.sbrstk }, Cont )
+            { vm | pc = vm.pc + 1, sbrstk = vm.curline :: vm.sbrstk }
 
         RSTR ->
             case vm.sbrstk of
                 a :: rest ->
-                    ( { vm | pc = vm.pc + 1, sbrstk = rest, curline = a }, Cont )
+                    { vm | pc = vm.pc + 1, sbrstk = rest, curline = a }
                 _ ->
                     error "RETURN without GOSUB"
 
@@ -252,9 +252,9 @@ exec1 vm =
                 Just lnum ->  -- TODO: Check >0 and <limit
                     case code of
                         "" ->
-                            ( { vm | pc = vm.pc + 1, lbuf = "", lines = Dict.remove lnum vm.lines }, Cont ) 
+                            { vm | pc = vm.pc + 1, lbuf = "", lines = Dict.remove lnum vm.lines }
                         _ ->
-                            ( { vm | pc = vm.pc + 1, lbuf = "", lines = Dict.insert lnum code vm.lines }, Cont )
+                            { vm | pc = vm.pc + 1, lbuf = "", lines = Dict.insert lnum code vm.lines }
                 Nothing ->
                     sysError "No line number"
 
@@ -265,20 +265,20 @@ exec1 vm =
             case String.uncons lbuf of
                 Just (n, _) ->
                     if Char.isDigit n then
-                        ( { vm | lbuf = lbuf, pc = vm.pc + 1 }, Cont )
+                        { vm | lbuf = lbuf, pc = vm.pc + 1 }
                     else
-                        ( { vm | lbuf = lbuf, pc = addr }, Cont )
+                        { vm | lbuf = lbuf, pc = addr }
                 Nothing ->
-                    ( { vm | lbuf = lbuf, pc = addr }, Cont )
+                    { vm | lbuf = lbuf, pc = addr }
 
         TST addr str ->
             let
                 lbuf = String.trimLeft vm.lbuf
             in
             if String.startsWith str lbuf then
-                ( { vm | lbuf = String.dropLeft (String.length str) lbuf, pc = vm.pc + 1 }, Cont )
+                { vm | lbuf = String.dropLeft (String.length str) lbuf, pc = vm.pc + 1 }
             else
-                ( { vm | lbuf = lbuf, pc = addr }, Cont )
+                { vm | lbuf = lbuf, pc = addr }
 
         TSTV addr ->
             let
@@ -287,11 +287,11 @@ exec1 vm =
             case String.uncons lbuf of
                 Just (v, _) ->
                     if Char.isUpper v then
-                        ( { vm | lbuf = String.dropLeft 1 lbuf, aestk = (Char.toCode v - Char.toCode 'A') :: vm.aestk, pc = vm.pc + 1 }, Cont )
+                        { vm | lbuf = String.dropLeft 1 lbuf, aestk = (Char.toCode v - Char.toCode 'A') :: vm.aestk, pc = vm.pc + 1 }
                     else
-                        ( { vm | lbuf = lbuf, pc = addr }, Cont )
+                        { vm | lbuf = lbuf, pc = addr }
                 Nothing ->
-                    ( { vm | lbuf = lbuf, pc = addr }, Cont )
+                    { vm | lbuf = lbuf, pc = addr }
 
         TSTN addr ->
             let
@@ -300,42 +300,42 @@ exec1 vm =
             in
             case String.toInt lnums of
                 Just lnum ->
-                    ( { vm | pc = vm.pc + 1, lbuf = rest, aestk = lnum :: vm.aestk }, Cont )
+                    { vm | pc = vm.pc + 1, lbuf = rest, aestk = lnum :: vm.aestk }
                 Nothing ->
-                    ( { vm | pc = addr, lbuf = lbuf }, Cont )
+                    { vm | pc = addr, lbuf = lbuf }
 
         PRS ->
             let
                 (out, rest) = span (\c -> c /= '"') vm.lbuf
             in
             if String.startsWith "\"" rest then
-                ( { vm | pc = vm.pc + 1, lbuf = String.dropLeft 1 rest, output = String.append vm.output out }, Cont )
+                { vm | pc = vm.pc + 1, lbuf = String.dropLeft 1 rest, output = String.append vm.output out }
             else
                 error "Syntax error"
 
         PRN ->
             case vm.aestk of
                 a :: rest ->
-                    ( { vm | pc = vm.pc + 1, aestk = rest, output = String.append vm.output (String.fromInt a) }, Cont )
+                    { vm | pc = vm.pc + 1, aestk = rest, output = String.append vm.output (String.fromInt a) }
                 _ ->
                     sysError "Stack underflow"
 
         SPC ->
-            ( { vm | pc = vm.pc + 1, output = String.append vm.output " " }, Cont )
+            { vm | pc = vm.pc + 1, output = String.append vm.output " " }
 
         NLINE ->
-            ( { vm | pc = vm.pc + 1, output = String.append vm.output "\n" }, Cont )
+            { vm | pc = vm.pc + 1, output = String.append vm.output "\n" }
 
         LST ->
             let
                 lines = String.concat (List.map (\(k, v) -> String.fromInt k ++ " " ++ v ++ "\n") (Dict.toList vm.lines))
             in
-            ( { vm | pc = vm.pc + 1, output = String.append vm.output lines }, Cont ) 
+            { vm | pc = vm.pc + 1, output = String.append vm.output lines }
 
         STORE ->
             case vm.aestk of
                 a :: b :: rest ->
-                    ( { vm | pc = vm.pc + 1, aestk = rest, vars = Dict.insert b a vm.vars }, Cont ) -- TODO: System Error, Invalid var
+                    { vm | pc = vm.pc + 1, aestk = rest, vars = Dict.insert b a vm.vars } -- TODO: System Error, Invalid var
                 _ ->
                     sysError "Stack underflow"
 
@@ -345,38 +345,38 @@ exec1 vm =
                     let
                         val = Maybe.withDefault 0 (Dict.get a vm.vars)
                     in
-                    ( { vm | pc = vm.pc + 1, aestk = val :: rest }, Cont ) -- TODO: System Error, Invalid var
+                    { vm | pc = vm.pc + 1, aestk = val :: rest } -- TODO: System Error, Invalid var
                 _ ->
                     sysError "Stack underflow"
 
         LIT val ->
-            ( { vm | pc = vm.pc + 1, aestk = val :: vm.aestk }, Cont )
+            { vm | pc = vm.pc + 1, aestk = val :: vm.aestk }
 
         ADD ->
             case vm.aestk of
                 a :: b :: rest ->
-                    ( { vm | pc = vm.pc + 1, aestk = a + b :: rest }, Cont )
+                    { vm | pc = vm.pc + 1, aestk = a + b :: rest }
                 _ ->
                     sysError "Stack underflow"
 
         SUB ->
             case vm.aestk of
                 a :: b :: rest ->
-                    ( { vm | pc = vm.pc + 1, aestk = b - a :: rest }, Cont )
+                    { vm | pc = vm.pc + 1, aestk = b - a :: rest }
                 _ ->
                     sysError "Stack underflow"
 
         NEG ->
             case vm.aestk of
                 a :: rest ->
-                    ( { vm | pc = vm.pc + 1, aestk =  -a :: rest }, Cont )
+                    { vm | pc = vm.pc + 1, aestk =  -a :: rest }
                 _ ->
                     sysError "Stack underflow"
 
         MUL ->
             case vm.aestk of
                 a :: b :: rest ->
-                    ( { vm | pc = vm.pc + 1, aestk = a * b :: rest }, Cont )
+                    { vm | pc = vm.pc + 1, aestk = a * b :: rest }
                 _ ->
                     sysError "Stack underflow"
 
@@ -384,7 +384,7 @@ exec1 vm =
             case vm.aestk of
                 a :: b :: rest ->
                     if a /= 0 then
-                        ( { vm | pc = vm.pc + 1, aestk = b // a :: rest }, Cont )
+                        { vm | pc = vm.pc + 1, aestk = b // a :: rest }
                     else
                         error "Division by zero"
                 _ ->
@@ -411,37 +411,31 @@ exec1 vm =
                                 False -- TODO: System Error, invalid relop
                     in
                     if res then
-                        ( { vm | pc = vm.pc + 1, aestk = rest }, Cont )
+                        { vm | pc = vm.pc + 1, aestk = rest }
                     else
                         nxt { vm | aestk = rest }
                 _ ->
                     sysError "Stack underflow"
 
 
-execN : VM -> Int -> (VM, Next)
+execN : VM -> Int -> VM
 execN vm n =
     if n == 0 then
-        ( vm, Cont )
+        vm
     else
-        case exec1 vm of
-            ( vm1, Stop ) ->
-                ( vm1, Stop)
-            ( vm1, Cont ) ->
+        let
+            vm1 = exec1 vm
+        in
+        case vm1.nextAction of
+            Stop ->
+                vm1
+            Cont ->
                 execN vm1 (n - 1)
 
 
 resume : VM -> VM
 resume vm =
-    let
-        (vm1, _) = execN vm 100
-    in
-    vm1
--- resume vm =
---     case exec1 vm of
---         ( vm1, Stop ) ->
---             vm1
---         ( vm1, Cont ) ->
---             resume vm1
+    execN vm 100
 
 
 resumeWithInput : VM -> String -> VM
