@@ -9,12 +9,13 @@ import Element.Font as Font
 import Element.Background as Background
 import Html exposing (Html)
 import Html.Events
-import Ilvm exposing (VM, resume, resumeWithInput, Next(..))
+import Ilvm exposing (VM, resume, resumeWithInput, break, Next(..))
 import Interp
 import Json.Decode as Decode
 import Dict
 import Array
 import Time
+import Platform.Cmd as Cmd
 import Platform.Cmd as Cmd
 
 -- MAIN
@@ -33,14 +34,26 @@ main =
 type alias Model = 
     { vm : VM
     , log : List String
-    , inp : String
+    , input : Input
     }
+
+type Input
+    = Chars String
+    | Break
+
+stringFromInput : Input -> String
+stringFromInput input =
+    case input of
+        Chars s ->
+            s
+        Break ->
+            ""
 
 init : () -> (Model, Cmd Msg)
 init _ =
     (   { vm = Interp.initialVM
         , log = []
-        , inp = ""
+        , input = Chars ""
         }
     , Cmd.none
     )
@@ -57,22 +70,25 @@ type Msg
     = Tick Time.Posix
     | GotInput String
     | GotReturn
+    | GotBreak
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
         GotInput str ->
-            ( { model | inp = str }, Cmd.none )
+            ( { model | input = Chars str }, Cmd.none )
+        GotBreak ->
+            ( { model | input = Break }, Cmd.none )
         GotReturn ->
             case model.vm.next of
                 Input _ ->
                     let
-                        vm1 = resumeWithInput model.vm model.inp
+                        vm1 = resumeWithInput model.vm (stringFromInput model.input)
                         output = if String.isEmpty vm1.output then [] else (List.reverse (String.lines vm1.output))
                         model1 = 
                             { vm = { vm1 | output = "" }
-                            , log = output ++ model.inp :: model.log
-                            , inp = ""
+                            , log = output ++ (stringFromInput model.input) :: model.log
+                            , input = Chars ""
                             }
                     in
                     (model1, Cmd.none)
@@ -81,16 +97,29 @@ update msg model =
         Tick _ ->
             case model.vm.next of
                 Continue ->
-                    let
-                        vm1 = resume model.vm
-                        output = if String.isEmpty vm1.output then [] else (List.reverse (String.lines vm1.output))
-                        model1 = 
-                            { vm = { vm1 | output = "" }
-                            , log = output ++ model.log
-                            , inp = ""
-                            }
-                    in
-                    (model1, Cmd.none)
+                    case model.input of
+                        Break ->
+                            let
+                                vm1 = break model.vm
+                                output = if String.isEmpty vm1.output then [] else (List.reverse (String.lines vm1.output))
+                                model1 =
+                                    { vm = { vm1 | output = "" }
+                                    , log = output ++ model.log
+                                    , input = Chars ""
+                                    }
+                            in
+                            (model1, Cmd.none)
+                        _ ->
+                            let
+                                vm1 = resume model.vm
+                                output = if String.isEmpty vm1.output then [] else (List.reverse (String.lines vm1.output))
+                                model1 = 
+                                    { vm = { vm1 | output = "" }
+                                    , log = output ++ model.log
+                                    , input = model.input
+                                    }
+                            in
+                            (model1, Cmd.none)
                 _ ->
                     (model, Cmd.none)
 
@@ -139,9 +168,13 @@ viewTerminal model =
         [ viewLog model.log
         , Element.Input.text [ onEnter GotReturn ] 
             { onChange = GotInput
-            , text = model.inp
+            , text = stringFromInput model.input
             , placeholder = Nothing
             , label = Element.Input.labelHidden ""
+            }
+        , Element.Input.button []
+            { onPress = Just GotBreak
+            , label = Element.text "Break"
             }
         ]
 

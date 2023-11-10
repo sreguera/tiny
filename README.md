@@ -9,6 +9,11 @@ programming language.
 * Uninit variables are 0.
 * Case sensitive.
 
+## Usage
+
+* Type in the input field.
+* Break button stops a running program.
+
 ## Development
 
 See the [elm documentation](https://guide.elm-lang.org/install/elm).
@@ -27,5 +32,5 @@ Install elm and then, in this directory:
 * Unit/fuzz/prop complete testing.
 * Better module exports.
 * UI: Terminal, terminal style save/load, VM debugging.
-* Break/Ctrl-C support.
+* Break/Ctrl-C keys support.
 * Compile as a github action.

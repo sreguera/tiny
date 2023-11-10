@@ -119,7 +119,7 @@ error0 msg vm =
     let
         line = String.concat ["\n! ", String.fromInt vm.curline, ": ", msg, "\n"]
     in
-    { vm | pc = read_addr, output = String.append vm.output line }
+    { vm | pc = read_addr, curline = 0, output = String.append vm.output line }
 
 
 parseNum : VM -> VM
@@ -140,7 +140,7 @@ exec1 vm =
             let
                 line = String.concat ["\n! ", String.fromInt vm.curline, ": ", msg, "\n"]
             in
-            { vm | pc = read_addr, output = String.append vm.output line }
+            { vm | pc = read_addr, curline = 0, output = String.append vm.output line }
 
         sysError : String -> VM
         sysError msg =
@@ -162,8 +162,8 @@ exec1 vm =
                 next = List.minimum <| List.filter (\x -> x > vm0.curline) <| Dict.keys vm0.lines
             in
             case next of
-                Just l ->
-                    { vm0 | pc = stmt_addr, curline = l, lbuf = Maybe.withDefault "" (Dict.get l vm0.lines) }
+                Just lineno ->
+                    { vm0 | pc = stmt_addr, curline = lineno, lbuf = Maybe.withDefault "" (Dict.get lineno vm0.lines) }
                 _ ->
                     { vm0 | pc = read_addr, curline = 0, lbuf = "" }
     in
@@ -217,7 +217,7 @@ exec1 vm =
             { vm | next = Input parseNum }
 
         FIN ->
-            { vm | pc = read_addr }
+            { vm | pc = read_addr } -- XXX curline=0?
 
         JMP addr ->
             { vm | pc = addr }
@@ -451,3 +451,7 @@ resumeWithInput vm s =
                 { vm1 | pc = vm1.pc + 1, next = Continue }
             _ ->
                 vm
+
+break : VM -> VM
+break vm =
+    error0 "Break in program" vm
