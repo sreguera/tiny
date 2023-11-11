@@ -342,7 +342,7 @@ exec1 vm =
             case vm.aestk of
                 a :: rest ->
                     let
-                        val = Maybe.withDefault (Word.fromInt 0) (Dict.get (Word.toInt a) vm.vars)
+                        val = Maybe.withDefault Word.zero (Dict.get (Word.toInt a) vm.vars)
                     in
                     { vm | pc = vm.pc + 1, aestk = val :: rest } -- TODO: System Error, Invalid var
                 _ ->
@@ -353,15 +353,15 @@ exec1 vm =
 
         ADD ->
             case vm.aestk of
-                a :: b :: rest ->
-                    { vm | pc = vm.pc + 1, aestk = Word.add a  b :: rest }
+                r :: l :: rest ->
+                    { vm | pc = vm.pc + 1, aestk = Word.add l r :: rest }
                 _ ->
                     sysError "Stack underflow"
 
         SUB ->
             case vm.aestk of
-                a :: b :: rest ->
-                    { vm | pc = vm.pc + 1, aestk = Word.minus b  a :: rest }
+                r :: l :: rest ->
+                    { vm | pc = vm.pc + 1, aestk = Word.minus l r :: rest }
                 _ ->
                     sysError "Stack underflow"
 
@@ -374,15 +374,15 @@ exec1 vm =
 
         MUL ->
             case vm.aestk of
-                a :: b :: rest ->
-                    { vm | pc = vm.pc + 1, aestk = Word.mul a b :: rest }
+                r :: l :: rest ->
+                    { vm | pc = vm.pc + 1, aestk = Word.mul l r :: rest }
                 _ ->
                     sysError "Stack underflow"
 
         DIV ->
             case vm.aestk of
-                a :: b :: rest ->
-                    case Word.div b a of
+                r :: l :: rest ->
+                    case Word.div l r of
                         Just n ->
                             { vm | pc = vm.pc + 1, aestk = n :: rest }
                         _ ->
