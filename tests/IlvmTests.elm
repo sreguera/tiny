@@ -7,6 +7,7 @@ import Test exposing (..)
 import Ilvm
 import Array
 import Dict
+import Word
 
 runCode : List Ilvm.Opcode -> Ilvm.VM
 runCode cod =
@@ -27,22 +28,22 @@ suite =
     describe "The VM implementation" 
         [ test "LIT works" <| 
             \_ -> case runCode [ Ilvm.LIT 5 ] of
-                    vm -> Expect.equal [5] vm.aestk
+                    vm -> Expect.equal [Word.fromInt 5] vm.aestk
         , test "ADD works" <| 
             \_ -> case runCode [ Ilvm.LIT 5, Ilvm.LIT 7, Ilvm.ADD ] of
-                    vm -> Expect.equal [12] vm.aestk
+                    vm -> Expect.equal [Word.fromInt 12] vm.aestk
         , test "SUB works" <| 
             \_ -> case runCode [ Ilvm.LIT 5, Ilvm.LIT 7, Ilvm.SUB ] of
-                    vm -> Expect.equal [-2] vm.aestk
+                    vm -> Expect.equal [Word.fromInt -2] vm.aestk
         , test "NEG works" <| 
             \_ -> case runCode [ Ilvm.LIT 5, Ilvm.NEG ] of
-                    vm -> Expect.equal [-5] vm.aestk
+                    vm -> Expect.equal [Word.fromInt -5] vm.aestk
         , test "MUL works" <| 
             \_ -> case runCode [ Ilvm.LIT 5, Ilvm.LIT 7, Ilvm.MUL ] of
-                    vm -> Expect.equal [35] vm.aestk
+                    vm -> Expect.equal [Word.fromInt 35] vm.aestk
         , test "DIV works" <| 
             \_ -> case runCode [ Ilvm.LIT 29, Ilvm.LIT 7, Ilvm.DIV ] of
-                    vm -> Expect.equal [4] vm.aestk
+                    vm -> Expect.equal [Word.fromInt 4] vm.aestk
         , test "CMPR > works" <| 
             \_ -> case runCode [ Ilvm.LIT 1, Ilvm.LIT 4, Ilvm.LIT 7, Ilvm.CMPR ] of
                     vm -> Expect.equal 2 vm.pc
@@ -51,10 +52,10 @@ suite =
                     vm -> Expect.equal 4 vm.pc
         , test "STORE works" <| 
             \_ -> case runCode [ Ilvm.LIT 5, Ilvm.LIT 7, Ilvm.STORE ] of
-                    vm -> Expect.equal (Just 7) (Dict.get 5 vm.vars)
+                    vm -> Expect.equal (Just (Word.fromInt 7)) (Dict.get 5 vm.vars)
         , test "IND works" <| 
             \_ -> case runCode [ Ilvm.LIT 5, Ilvm.LIT 7, Ilvm.STORE, Ilvm.LIT 5, Ilvm.IND ] of
-                    vm -> Expect.equal [7] vm.aestk
+                    vm -> Expect.equal [Word.fromInt 7] vm.aestk
         , test "JMP works" <| 
             \_ -> case runCode [ Ilvm.JMP 10 ] of
                     vm -> Expect.equal 10 vm.pc
@@ -81,10 +82,10 @@ suite =
                     vm -> Expect.equal 10 vm.pc
         , test "TSTV puts var in stack" <| 
             \_ -> case runCodeInput [ Ilvm.TSTV 10 ] "D" of
-                    vm -> Expect.equal [3] vm.aestk
+                    vm -> Expect.equal [Word.fromInt 3] vm.aestk
         , test "TSTN puts numbers in stack" <| 
             \_ -> case runCodeInput [ Ilvm.TSTN 10, Ilvm.TSTN 10 ] "31 4" of
-                    vm -> Expect.equal [4, 31] vm.aestk
+                    vm -> Expect.equal [Word.fromInt 4, Word.fromInt 31] vm.aestk
         , test "TSTN jumps if no number" <| 
             \_ -> case runCodeInput [ Ilvm.TSTN 10 ] "abc" of
                     vm -> Expect.equal 10 vm.pc

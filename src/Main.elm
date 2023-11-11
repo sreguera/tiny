@@ -17,6 +17,7 @@ import Array
 import Time
 import Platform.Cmd as Cmd
 import Platform.Cmd as Cmd
+import Word
 
 -- MAIN
 
@@ -217,7 +218,7 @@ viewVars model =
               }
             , { header = Element.text "Value"
               , width = Element.fill
-              , view = \(_, value) -> Element.text (String.fromInt value)
+              , view = \(_, value) -> Element.text (String.fromInt (Word.toInt value))
               }
             ]
         }

@@ -3,6 +3,7 @@ module Ilvm exposing (..)
 
 import Array exposing (Array)
 import Dict exposing (Dict)
+import Word exposing (Word)
 
 
 type alias Address = Int
@@ -49,9 +50,9 @@ type alias VM =
     { pc : Address
     , code : Array Opcode
     , lbuf : String
-    , aestk : List Int
+    , aestk : List Word
     , cstk : List Address
-    , vars : Dict Int Int
+    , vars : Dict Int Word
     , curline : Int
     , sbrstk : List Int
     , lines : Dict Int String
@@ -126,7 +127,7 @@ parseNum : VM -> VM
 parseNum vm =
     case String.toInt vm.lbuf of
         Just n ->
-            { vm | lbuf = "", aestk = n :: vm.aestk }
+            { vm | lbuf = "", aestk = Word.fromInt n :: vm.aestk }
         Nothing ->
             error0 "Syntax error" vm
 
@@ -191,9 +192,9 @@ exec1 vm =
         XFER ->
             case vm.aestk of
                 a :: rest ->
-                    case Dict.get a vm.lines of
+                    case Dict.get (Word.toInt a) vm.lines of
                         Just code ->
-                            { vm | pc = stmt_addr, curline = a, lbuf = code, aestk = rest }
+                            { vm | pc = stmt_addr, curline = (Word.toInt a), lbuf = code, aestk = rest }
                         _ ->
                             error "Missing line"
                 _ ->
@@ -285,7 +286,7 @@ exec1 vm =
             case String.uncons lbuf of
                 Just (v, _) ->
                     if Char.isUpper v then
-                        { vm | lbuf = String.dropLeft 1 lbuf, aestk = (Char.toCode v - Char.toCode 'A') :: vm.aestk, pc = vm.pc + 1 }
+                        { vm | lbuf = String.dropLeft 1 lbuf, aestk = Word.fromInt (Char.toCode v - Char.toCode 'A') :: vm.aestk, pc = vm.pc + 1 }
                     else
                         { vm | lbuf = lbuf, pc = addr }
                 Nothing ->
@@ -298,7 +299,7 @@ exec1 vm =
             in
             case String.toInt lnums of
                 Just lnum ->
-                    { vm | pc = vm.pc + 1, lbuf = rest, aestk = lnum :: vm.aestk }
+                    { vm | pc = vm.pc + 1, lbuf = rest, aestk = Word.fromInt lnum :: vm.aestk }
                 Nothing ->
                     { vm | pc = addr, lbuf = lbuf }
 
@@ -314,7 +315,7 @@ exec1 vm =
         PRN ->
             case vm.aestk of
                 a :: rest ->
-                    { vm | pc = vm.pc + 1, aestk = rest, output = String.append vm.output (String.fromInt a) }
+                    { vm | pc = vm.pc + 1, aestk = rest, output = String.append vm.output (String.fromInt (Word.toInt a)) }
                 _ ->
                     sysError "Stack underflow"
 
@@ -333,7 +334,7 @@ exec1 vm =
         STORE ->
             case vm.aestk of
                 a :: b :: rest ->
-                    { vm | pc = vm.pc + 1, aestk = rest, vars = Dict.insert b a vm.vars } -- TODO: System Error, Invalid var
+                    { vm | pc = vm.pc + 1, aestk = rest, vars = Dict.insert (Word.toInt b) a vm.vars } -- TODO: System Error, Invalid var
                 _ ->
                     sysError "Stack underflow"
 
@@ -341,50 +342,51 @@ exec1 vm =
             case vm.aestk of
                 a :: rest ->
                     let
-                        val = Maybe.withDefault 0 (Dict.get a vm.vars)
+                        val = Maybe.withDefault (Word.fromInt 0) (Dict.get (Word.toInt a) vm.vars)
                     in
                     { vm | pc = vm.pc + 1, aestk = val :: rest } -- TODO: System Error, Invalid var
                 _ ->
                     sysError "Stack underflow"
 
         LIT val ->
-            { vm | pc = vm.pc + 1, aestk = val :: vm.aestk }
+            { vm | pc = vm.pc + 1, aestk = (Word.fromInt val) :: vm.aestk }
 
         ADD ->
             case vm.aestk of
                 a :: b :: rest ->
-                    { vm | pc = vm.pc + 1, aestk = a + b :: rest }
+                    { vm | pc = vm.pc + 1, aestk = Word.add a  b :: rest }
                 _ ->
                     sysError "Stack underflow"
 
         SUB ->
             case vm.aestk of
                 a :: b :: rest ->
-                    { vm | pc = vm.pc + 1, aestk = b - a :: rest }
+                    { vm | pc = vm.pc + 1, aestk = Word.minus b  a :: rest }
                 _ ->
                     sysError "Stack underflow"
 
         NEG ->
             case vm.aestk of
                 a :: rest ->
-                    { vm | pc = vm.pc + 1, aestk =  -a :: rest }
+                    { vm | pc = vm.pc + 1, aestk = Word.neg a :: rest }
                 _ ->
                     sysError "Stack underflow"
 
         MUL ->
             case vm.aestk of
                 a :: b :: rest ->
-                    { vm | pc = vm.pc + 1, aestk = a * b :: rest }
+                    { vm | pc = vm.pc + 1, aestk = Word.mul a b :: rest }
                 _ ->
                     sysError "Stack underflow"
 
         DIV ->
             case vm.aestk of
                 a :: b :: rest ->
-                    if a /= 0 then
-                        { vm | pc = vm.pc + 1, aestk = b // a :: rest }
-                    else
-                        error "Division by zero"
+                    case Word.div b a of
+                        Just n ->
+                            { vm | pc = vm.pc + 1, aestk = n :: rest }
+                        _ ->
+                            error "Division by zero"
                 _ ->
                     sysError "Stack underflow"
 
@@ -392,19 +394,19 @@ exec1 vm =
             case vm.aestk of
                 r :: c :: l :: rest ->
                     let
-                        res = case c of
-                            0 ->
-                                Just (l == r)
-                            1 ->
-                                Just (l < r)
-                            2 ->
-                                Just (l <= r)
-                            3 ->
-                                Just (l /= r)
-                            4 ->
-                                Just (l > r)
-                            5 ->
-                                Just (l >= r)
+                        res = case (Word.toInt c) of
+                            0 -> -- ==
+                                Just (Word.eq l r)
+                            1 -> -- <
+                                Just (Word.less l r)
+                            2 -> -- <=
+                                Just (not (Word.less r l))
+                            3 -> -- /=
+                                Just (not (Word.eq l r))
+                            4 -> -- > 
+                                Just (Word.less r l) 
+                            5 -> -- >=
+                                Just (not (Word.less l r)) 
                             _ ->
                                 Nothing
                     in
@@ -415,7 +417,7 @@ exec1 vm =
                             else
                                 nxt { vm | aestk = rest }
                         Nothing ->
-                            sysError ("Invalid comparison " ++ String.fromInt c)
+                            sysError ("Invalid comparison " ++ String.fromInt (Word.toInt c))
                 _ ->
                     sysError "Stack underflow"
 
