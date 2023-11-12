@@ -2,7 +2,6 @@ module Ilvm exposing
     ( Opcode(..)
     , VM, Next(..)
     , makeVM, makeErrorVM, resume, resumeWithInput, break
-    , execN
     )
 
 
@@ -413,9 +412,9 @@ exec1 vm =
                     sysError "Stack underflow"
 
 
-execN : VM -> Int -> VM
-execN vm n =
-    if n == 0 then
+resume : Int -> VM -> VM
+resume cycles vm =
+    if cycles == 0 then
         vm
     else
         let
@@ -423,19 +422,14 @@ execN vm n =
         in
         case vm1.next of
             Continue ->
-                execN vm1 (n - 1)
+                resume (cycles - 1) vm1
             _ ->
                 vm1
 
 
-resume : VM -> VM
-resume vm =
-    execN vm 100
-
-
-resumeWithInput : VM -> String -> VM
-resumeWithInput vm s =
-    resume <| 
+resumeWithInput : Int -> VM -> String -> VM
+resumeWithInput cycles vm s =
+    resume cycles <| 
         case vm.next of 
             Input complete ->
                 let
@@ -444,6 +438,7 @@ resumeWithInput vm s =
                 { vm1 | pc = vm1.pc + 1, next = Continue }
             _ ->
                 vm
+
 
 break : VM -> VM
 break vm =

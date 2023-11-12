@@ -15,7 +15,7 @@ runCode cod =
     let
         vm = Ilvm.makeVM (Array.fromList cod)
     in
-    Ilvm.execN vm (List.length cod)
+    Ilvm.resume (List.length cod) vm
 
 
 runCodeInput : List Ilvm.Opcode -> String -> Ilvm.VM
@@ -23,7 +23,7 @@ runCodeInput cod str =
     let
         vm = Ilvm.makeVM (Array.fromList cod)
     in
-    Ilvm.execN { vm | lbuf = str } (List.length cod)
+    Ilvm.resume (List.length cod) { vm | lbuf = str }
 
 
 nonZero : Fuzzer number -> Fuzzer number

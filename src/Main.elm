@@ -72,6 +72,9 @@ type Msg
     | GotReturn
     | GotBreak
 
+cyclesPerTick : Int
+cyclesPerTick = 100
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
@@ -83,7 +86,7 @@ update msg model =
             case model.vm.next of
                 Input _ ->
                     let
-                        vm1 = resumeWithInput model.vm (stringFromInput model.input)
+                        vm1 = resumeWithInput cyclesPerTick model.vm (stringFromInput model.input)
                         output = if String.isEmpty vm1.output then [] else (List.reverse (String.lines vm1.output))
                         model1 = 
                             { vm = { vm1 | output = "" }
@@ -111,7 +114,7 @@ update msg model =
                             (model1, Cmd.none)
                         _ ->
                             let
-                                vm1 = resume model.vm
+                                vm1 = resume cyclesPerTick model.vm
                                 output = if String.isEmpty vm1.output then [] else (List.reverse (String.lines vm1.output))
                                 model1 = 
                                     { vm = { vm1 | output = "" }
