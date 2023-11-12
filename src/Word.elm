@@ -77,11 +77,11 @@ mul (Word i1) (Word i2) =
 
 {-|-}
 div : Word -> Word -> Maybe Word
-div (Word i1) (Word i2) =
-    if i2 == 0 then
+div w1 w2 =
+    if w2 == zero then
         Nothing
     else
-        Just <| fromInt (i1 // i2)
+        Just <| fromInt ((toInt w1) // (toInt w2))
 
 
 {-|-}
