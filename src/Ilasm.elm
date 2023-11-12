@@ -17,7 +17,7 @@ import Ilvm
 import Dict exposing (Dict)
 import Result exposing (andThen)
 import List
-
+import Utils
 
 type alias Label = String
 
@@ -105,19 +105,8 @@ pass1 program =
 pass2 : List Inst -> SymTab -> Result String (List Ilvm.Opcode)
 pass2 insts syms =
     List.map (encode syms) insts
-        |> combine
+        |> Utils.combine
         |> Result.map List.concat
-
-
--- also in Result.Extra
-combine : List (Result x a) -> Result x (List a)
-combine l =
-    List.foldr (Result.map2 (::)) (Ok []) l
-
-
--- also in Basics.Extra
-flip : (a -> b -> c) -> b -> a -> c
-flip f a b = f b a
 
 
 {-| Encode one assembly instruction into VM opcodes. Uses the symbol
@@ -152,7 +141,7 @@ encode syms inst =
     in
     case inst of
         TST label string ->
-            encodeLabel ((flip Ilvm.TST) string) label
+            encodeLabel ((Utils.flip Ilvm.TST) string) label
         CALL label ->
             encodeLabel Ilvm.CALL label
         RTN ->

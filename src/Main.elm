@@ -16,7 +16,6 @@ import Dict
 import Array
 import Time
 import Platform.Cmd as Cmd
-import Platform.Cmd as Cmd
 import Word
 
 -- MAIN

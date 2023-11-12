@@ -1,9 +1,15 @@
-module Ilvm exposing (..)
+module Ilvm exposing 
+    ( Opcode(..)
+    , VM, Next(..)
+    , makeVM, makeErrorVM, resume, resumeWithInput, break
+    , execN
+    )
 
 
 import Array exposing (Array)
 import Dict exposing (Dict)
 import Word exposing (Word)
+import Utils
 
 
 type alias Address = Int
@@ -90,21 +96,6 @@ makeErrorVM err =
         errorVM = makeVM errorCodes
     in
     { errorVM | output = err }
-
-
-span : (Char -> Bool) -> String -> (String, String)
-span pred s =
-    case String.uncons s of
-        Just (h, t) ->
-            if pred h then
-                let 
-                    (take, drop) = span pred t
-                in
-                (String.cons h take, drop)
-            else
-                ("", s)
-        Nothing ->
-            ("", s)
 
 
 read_addr : Address
@@ -245,7 +236,7 @@ exec1 vm =
 
         INSRT ->
             let
-                (lnums, code) = span Char.isDigit vm.lbuf
+                (lnums, code) = Utils.span Char.isDigit vm.lbuf
             in
             case String.toInt lnums of
                 Just lnum ->  -- TODO: Check >0 and <limit
@@ -295,7 +286,7 @@ exec1 vm =
         TSTN addr ->
             let
                 lbuf = String.trimLeft vm.lbuf
-                (lnums, rest) = span Char.isDigit lbuf
+                (lnums, rest) = Utils.span Char.isDigit lbuf
             in
             case String.toInt lnums of
                 Just lnum ->
@@ -305,7 +296,7 @@ exec1 vm =
 
         PRS ->
             let
-                (out, rest) = span (\c -> c /= '"') vm.lbuf
+                (out, rest) = Utils.span (\c -> c /= '"') vm.lbuf
             in
             if String.startsWith "\"" rest then
                 { vm | pc = vm.pc + 1, lbuf = String.dropLeft 1 rest, output = String.append vm.output out }

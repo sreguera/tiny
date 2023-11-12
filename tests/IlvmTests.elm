@@ -140,10 +140,3 @@ suite =
         ]
 
 
-suite2 : Test
-suite2 =
-    describe "The aux functions"
-        [ test "span works" <|
-            \_ -> Expect.equal ("123", "abc") (Ilvm.span Char.isDigit "123abc")
-        ]
-
